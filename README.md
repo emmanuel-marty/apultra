@@ -24,5 +24,5 @@ Inspirations:
 
 License:
 
-* The zultra code is available under the Zlib license.
+* The apultra code is available under the Zlib license.
 * The match finder (matchfinder.c) is available under the CC0 license due to using portions of code from Eric Bigger's Wimlib in the suffix array-based matchfinder.
