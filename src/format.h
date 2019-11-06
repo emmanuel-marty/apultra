@@ -34,9 +34,9 @@
 #define _FORMAT_H
 
 #define MIN_OFFSET 1
-#define MAX_OFFSET 0xfffff
+#define MAX_OFFSET 0x1fffff
 
-#define MAX_VARLEN 0xfffff
+#define MAX_VARLEN 0x1fffff
 
 #define BLOCK_SIZE 0x100000
 
