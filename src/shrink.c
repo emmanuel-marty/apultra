@@ -316,15 +316,17 @@ static void apultra_insert_forward_match(apultra_compressor *pCompressor, const 
  * @param nStartOffset current offset in input window (typically the number of previously compressed bytes)
  * @param nEndOffset offset to end finding matches at (typically the size of the total input window in bytes
  * @param nInsertForwardReps non-zero to insert forward repmatch candidates, zero to use the previously inserted candidates
+ * @param nCurRepMatchOffset starting rep offset for this block
+ * @param nBlockFlags bit 0: 1 for first block, 0 otherwise; bit 1: 1 for last block, 0 otherwise
  */
-static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsigned char *pInWindow, const int nStartOffset, const int nEndOffset, const int nInsertForwardReps, const int nBlockFlags) {
+static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsigned char *pInWindow, const int nStartOffset, const int nEndOffset, const int nInsertForwardReps, const int *nCurRepMatchOffset, const int nBlockFlags) {
    apultra_arrival *arrival = pCompressor->arrival;
    int i, j, n;
 
    memset(arrival + (nStartOffset << MATCHES_PER_ARRIVAL_SHIFT), 0, sizeof(apultra_arrival) * ((nEndOffset - nStartOffset) << MATCHES_PER_ARRIVAL_SHIFT));
 
    arrival[nStartOffset << MATCHES_PER_ARRIVAL_SHIFT].from_slot = -1;
-   arrival[nStartOffset << MATCHES_PER_ARRIVAL_SHIFT].rep_offset = 0;
+   arrival[nStartOffset << MATCHES_PER_ARRIVAL_SHIFT].rep_offset = *nCurRepMatchOffset;
 
    for (i = (nStartOffset << MATCHES_PER_ARRIVAL_SHIFT); i != ((nEndOffset+1) << MATCHES_PER_ARRIVAL_SHIFT); i++) {
       arrival[i].cost = 0x40000000;
@@ -693,13 +695,14 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
  * @param pBestMatch optimal matches to evaluate and update
  * @param nStartOffset current offset in input window (typically the number of previously compressed bytes)
  * @param nEndOffset offset to end finding matches at (typically the size of the total input window in bytes
+ * @param nCurRepMatchOffset starting rep offset for this block
  *
  * @return non-zero if the number of tokens was reduced, 0 if it wasn't
  */
-static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsigned char *pInWindow, apultra_final_match *pBestMatch, const int nStartOffset, const int nEndOffset) {
+static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsigned char *pInWindow, apultra_final_match *pBestMatch, const int nStartOffset, const int nEndOffset, const int *nCurRepMatchOffset) {
    int i;
    int nNumLiterals = 0;
-   int nRepMatchOffset = 0;
+   int nRepMatchOffset = *nCurRepMatchOffset;
    int nFollowsLiteral = 0;
    int nDidReduce = 0;
 
@@ -870,17 +873,18 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
  * @param nEndOffset offset to end finding matches at (typically the size of the total input window in bytes
  * @param pOutData pointer to output buffer
  * @param nMaxOutDataSize maximum size of output buffer, in bytes
- * @param nBlockFlags bit 0: 1 for first block, 0 otherwise; bit 1: 1 for last block, 0 otherwise
  * @param nCurBitsOffset write index into output buffer, of current byte being filled with bits
  * @param nCurBitMask bit shifter
  * @param nFollowsLiteral non-zero if the next command to be issued follows a literal, 0 if not
+ * @param nCurRepMatchOffset starting rep offset for this block, updated after the block is compressed successfully
+ * @param nBlockFlags bit 0: 1 for first block, 0 otherwise; bit 1: 1 for last block, 0 otherwise
  *
  * @return size of compressed data in output buffer, or -1 if the data is uncompressible
  */
-static int apultra_write_block(apultra_compressor *pCompressor, apultra_final_match *pBestMatch, const unsigned char *pInWindow, const int nStartOffset, const int nEndOffset, unsigned char *pOutData, int nOutOffset, const int nMaxOutDataSize, const int nBlockFlags, int *nCurBitsOffset, int *nCurBitMask, int *nFollowsLiteral) {
+static int apultra_write_block(apultra_compressor *pCompressor, apultra_final_match *pBestMatch, const unsigned char *pInWindow, const int nStartOffset, const int nEndOffset, unsigned char *pOutData, int nOutOffset, const int nMaxOutDataSize, int *nCurBitsOffset, int *nCurBitMask, int *nFollowsLiteral, int *nCurRepMatchOffset, const int nBlockFlags) {
    int i, j;
    int nInFirstLiteralOffset = 0;
-   int nRepMatchOffset = 0;
+   int nRepMatchOffset = *nCurRepMatchOffset;
 
    if (nBlockFlags & 1) {
       if (nOutOffset < 0 || nOutOffset >= nMaxOutDataSize)
@@ -1065,6 +1069,7 @@ static int apultra_write_block(apultra_compressor *pCompressor, apultra_final_ma
       pCompressor->stats.commands_divisor++;
    }
 
+   *nCurRepMatchOffset = nRepMatchOffset;
    return nOutOffset;
 }
 
@@ -1130,32 +1135,34 @@ static int apultra_write_raw_uncompressed_block_v3(apultra_compressor *pCompress
  * @param nCurBitsOffset write index into output buffer, of current byte being filled with bits
  * @param nCurBitMask bit shifter
  * @param nCurFollowsLiteral non-zero if the next command to be issued follows a literal, 0 if not
+ * @param nCurRepMatchOffset starting rep offset for this block, updated after the block is compressed successfully
  * @param nBlockFlags bit 0: 1 for first block, 0 otherwise; bit 1: 1 for last block, 0 otherwise
  *
  * @return size of compressed data in output buffer, or -1 if the data is uncompressible
  */
-static int apultra_optimize_and_write_block(apultra_compressor *pCompressor, const unsigned char *pInWindow, const int nPreviousBlockSize, const int nInDataSize, unsigned char *pOutData, const int nMaxOutDataSize, int *nCurBitsOffset, int *nCurBitMask, int *nCurFollowsLiteral, const int nBlockFlags) {
+static int apultra_optimize_and_write_block(apultra_compressor *pCompressor, const unsigned char *pInWindow, const int nPreviousBlockSize, const int nInDataSize, unsigned char *pOutData, const int nMaxOutDataSize, int *nCurBitsOffset, int *nCurBitMask, int *nCurFollowsLiteral, int *nCurRepMatchOffset, const int nBlockFlags) {
    int nResult;
    int nOutOffset = 0;
 
-   apultra_optimize_forward(pCompressor, pInWindow, nPreviousBlockSize, nPreviousBlockSize + nInDataSize, 1 /* nInsertForwardReps */, nBlockFlags);
+   apultra_optimize_forward(pCompressor, pInWindow, nPreviousBlockSize, nPreviousBlockSize + nInDataSize, 1 /* nInsertForwardReps */, nCurRepMatchOffset, nBlockFlags);
 
    /* Pick optimal matches */
-   apultra_optimize_forward(pCompressor, pInWindow, nPreviousBlockSize, nPreviousBlockSize + nInDataSize, 0 /* nInsertForwardReps */, nBlockFlags);
+   apultra_optimize_forward(pCompressor, pInWindow, nPreviousBlockSize, nPreviousBlockSize + nInDataSize, 0 /* nInsertForwardReps */, nCurRepMatchOffset, nBlockFlags);
 
    /* Apply reduction and merge pass */
    int nDidReduce;
    int nPasses = 0;
    do {
-      nDidReduce = apultra_reduce_commands(pCompressor, pInWindow, pCompressor->best_match, nPreviousBlockSize, nPreviousBlockSize + nInDataSize);
+      nDidReduce = apultra_reduce_commands(pCompressor, pInWindow, pCompressor->best_match, nPreviousBlockSize, nPreviousBlockSize + nInDataSize, nCurRepMatchOffset);
       nPasses++;
    } while (nDidReduce && nPasses < 20);
 
    /* Write compressed block */
 
-   nResult = apultra_write_block(pCompressor, pCompressor->best_match, pInWindow, nPreviousBlockSize, nPreviousBlockSize + nInDataSize, pOutData, nOutOffset, nMaxOutDataSize, nBlockFlags, nCurBitsOffset, nCurBitMask, nCurFollowsLiteral);
+   nResult = apultra_write_block(pCompressor, pCompressor->best_match, pInWindow, nPreviousBlockSize, nPreviousBlockSize + nInDataSize, pOutData, nOutOffset, nMaxOutDataSize, nCurBitsOffset, nCurBitMask, nCurFollowsLiteral, nCurRepMatchOffset, nBlockFlags);
    if (nResult < 0) {
       /* Try to write block as all literals */
+      *nCurRepMatchOffset = 0;
       nResult = apultra_write_raw_uncompressed_block_v3(pCompressor, pInWindow, nPreviousBlockSize, nPreviousBlockSize + nInDataSize, pOutData, nOutOffset, nMaxOutDataSize, nBlockFlags, nCurBitsOffset, nCurBitMask, nCurFollowsLiteral);
    }
 
@@ -1270,10 +1277,15 @@ static void apultra_compressor_destroy(apultra_compressor *pCompressor) {
  * @param nInDataSize number of input bytes to compress
  * @param pOutData pointer to output buffer
  * @param nMaxOutDataSize maximum size of output buffer, in bytes
+ * @param nCurBitsOffset write index into output buffer, of current byte being filled with bits
+ * @param nCurBitMask bit shifter
+ * @param nCurFollowsLiteral non-zero if the next command to be issued follows a literal, 0 if not
+ * @param nCurRepMatchOffset starting rep offset for this block, updated after the block is compressed successfully
+ * @param nBlockFlags bit 0: 1 for first block, 0 otherwise; bit 1: 1 for last block, 0 otherwise
  *
  * @return size of compressed data in output buffer, or -1 if the data is uncompressible
  */
-static int apultra_compressor_shrink_block(apultra_compressor *pCompressor, const unsigned char *pInWindow, const int nPreviousBlockSize, const int nInDataSize, unsigned char *pOutData, const int nMaxOutDataSize, int *nCurBitsOffset, int *nCurBitMask, int *nCurFollowsLiteral, const int nBlockFlags) {
+static int apultra_compressor_shrink_block(apultra_compressor *pCompressor, const unsigned char *pInWindow, const int nPreviousBlockSize, const int nInDataSize, unsigned char *pOutData, const int nMaxOutDataSize, int *nCurBitsOffset, int *nCurBitMask, int *nCurFollowsLiteral, int *nCurRepMatchOffset, const int nBlockFlags) {
    int nCompressedSize;
 
    if (apultra_build_suffix_array(pCompressor, pInWindow, nPreviousBlockSize + nInDataSize))
@@ -1284,7 +1296,7 @@ static int apultra_compressor_shrink_block(apultra_compressor *pCompressor, cons
       }
       apultra_find_all_matches(pCompressor, NMATCHES_PER_INDEX, nPreviousBlockSize, nPreviousBlockSize + nInDataSize);
 
-      nCompressedSize = apultra_optimize_and_write_block(pCompressor, pInWindow, nPreviousBlockSize, nInDataSize, pOutData, nMaxOutDataSize, nCurBitsOffset, nCurBitMask, nCurFollowsLiteral, nBlockFlags);
+      nCompressedSize = apultra_optimize_and_write_block(pCompressor, pInWindow, nPreviousBlockSize, nInDataSize, pOutData, nMaxOutDataSize, nCurBitsOffset, nCurBitMask, nCurFollowsLiteral, nCurRepMatchOffset, nBlockFlags);
    }
 
    return nCompressedSize;
@@ -1332,6 +1344,7 @@ size_t apultra_compress(const unsigned char *pInputData, unsigned char *pOutBuff
    int nNumBlocks = 0;
    int nCurBitsOffset = INT_MIN, nCurBitMask = 0, nCurFollowsLiteral = 0;
    int nBlockFlags = 1;
+   int nCurRepMatchOffset = 0;
 
    while (nOriginalSize < nInputSize && !nError) {
       int nInDataSize;
@@ -1350,7 +1363,7 @@ size_t apultra_compress(const unsigned char *pInputData, unsigned char *pOutBuff
          if ((nOriginalSize + nInDataSize) >= nInputSize)
             nBlockFlags |= 2;
          nOutDataSize = apultra_compressor_shrink_block(&compressor, pInputData + nOriginalSize - nPreviousBlockSize, nPreviousBlockSize, nInDataSize, pOutBuffer + nCompressedSize, nOutDataEnd,
-            &nCurBitsOffset, &nCurBitMask, &nCurFollowsLiteral, nBlockFlags);
+            &nCurBitsOffset, &nCurBitMask, &nCurFollowsLiteral, &nCurRepMatchOffset, nBlockFlags);
          nBlockFlags &= (~1);
 
          if (nOutDataSize >= 0) {
