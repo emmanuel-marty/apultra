@@ -562,8 +562,7 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
                         nCannotEncode = 1;
 
                      nMatchOffsetCost = arrival[(i << MATCHES_PER_ARRIVAL_SHIFT) + j].follows_literal ?
-                        ((k <= 3) ? nNoRepMatchOffsetCostFollowsLit : nNoRepMatchOffsetCostFollowsLit) :
-                        ((k <= 3) ? nNoRepMatchOffsetCostNoLit : nNoRepMatchOffsetCostNoLit);
+                        nNoRepMatchOffsetCostFollowsLit : nNoRepMatchOffsetCostNoLit;
                      nMatchLenCost = nNoRepMatchMatchLenCost;
                      nScore = arrival[(i << MATCHES_PER_ARRIVAL_SHIFT) + j].score + 3;
                   }
