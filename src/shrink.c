@@ -716,13 +716,13 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
             int nNextFollowsLiteral = (pMatch->length >= 2) ? 0 : 1;
             int nCannotEncode = 0;
 
-            while (nNextIndex < nEndOffset && pBestMatch[nNextIndex].length < MIN_MATCH_SIZE) {
+            while (nNextIndex < nEndOffset && pBestMatch[nNextIndex].length < 2) {
                nNextLiterals++;
                nNextIndex++;
                nNextFollowsLiteral = 1;
             }
 
-            if (nNextIndex < nEndOffset && pBestMatch[nNextIndex].length >= MIN_MATCH_SIZE) {
+            if (nNextIndex < nEndOffset && pBestMatch[nNextIndex].length >= 2) {
                /* This command is a match, is followed by 'nNextLiterals' literals and then by another match. Calculate this command's current cost (excluding 'nNumLiterals' bytes) */
 
                int nCurCommandSize = TOKEN_PREFIX_SIZE /* token */ + apultra_get_literals_varlen_size(nNumLiterals);
@@ -743,39 +743,19 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
                   nNextCommandSize += apultra_get_offset_varlen_size(pBestMatch[nNextIndex].length, pBestMatch[nNextIndex].offset, nNextFollowsLiteral) + apultra_get_match_varlen_size(pBestMatch[nNextIndex].length, pBestMatch[nNextIndex].offset, 0);
                }
 
-               int nLoss = 0;
-               if (pMatch->length >= 2 && pBestMatch[nNextIndex].length == 1) {
-                  int nNextRepMatchIndex = nNextIndex + pBestMatch[nNextIndex].length;
-                  const int nNextNextFollowsLiterals = 1;   /* Since we're starting from the next command that's a 4-bit short match, that is treated as a literal, the command after that
-                                                             * is considered to always follow literals */
-
-                  /* The next command uses a short 4-bit offset that doesn't participate in rep-matching; look for the command after that, that would benefit from repmatches, if any */
-                  while (nNextRepMatchIndex < nEndOffset && pBestMatch[nNextRepMatchIndex].length < 2) {
-                     nNextRepMatchIndex++;
-                  }
-
-                  if (nNextRepMatchIndex < nEndOffset && pBestMatch[nNextRepMatchIndex].length >= 2 && pBestMatch[nNextRepMatchIndex].offset == pMatch->offset &&
-                      nRepMatchOffset != pMatch->offset) {
-                     /* If turning the current command into literals will invalidate the rep-match of the next command that can use it, account for that loss when calculating 
-                      * if it is beneficial to reduce the command or not */
-
-                     if ((pBestMatch[nNextRepMatchIndex].length < 3 && pBestMatch[nNextRepMatchIndex].offset >= MINMATCH3_OFFSET) ||
-                        (pBestMatch[nNextRepMatchIndex].length < 4 && pBestMatch[nNextRepMatchIndex].offset >= MINMATCH4_OFFSET)) {
-                        /* This match length can only be encoded with a rep-match; reducing the current match to literals would put us in a situation where the repmatch doesn't
-                         * occur anymore, and would make this next match unencodable, skip. */
-                        nCannotEncode = 1;
-                     }
-                     else {
-                        nLoss = (apultra_get_offset_varlen_size(pBestMatch[nNextRepMatchIndex].length, pBestMatch[nNextRepMatchIndex].offset, nNextNextFollowsLiterals) + apultra_get_match_varlen_size(pBestMatch[nNextRepMatchIndex].length, pBestMatch[nNextRepMatchIndex].offset, 0)) -
-                           (apultra_get_rep_offset_varlen_size() + apultra_get_match_varlen_size(pBestMatch[nNextRepMatchIndex].length, pBestMatch[nNextRepMatchIndex].offset, 1));
-                     }
-                  }
-               }
                int nOriginalCombinedCommandSize = nCurCommandSize + nNextCommandSize;
 
                /* Calculate the cost of replacing this match command by literals + the next command with the cost of encoding these literals (excluding 'nNumLiterals' bytes) */
                int nReducedFollowsLiteral = (nNumLiterals + pMatch->length) ? 1 : 0;
-               int nReducedCommandSize = (pMatch->length << 3) + TOKEN_PREFIX_SIZE /* token */ + apultra_get_literals_varlen_size(nNumLiterals + pMatch->length + nNextLiterals) + (nNextLiterals << 3);
+               int nReducedCommandSize = TOKEN_PREFIX_SIZE /* token */ + apultra_get_literals_varlen_size(nNumLiterals + pMatch->length + nNextLiterals) + (nNextLiterals << 3);
+
+               for (int j = 0; j < pMatch->length; j++) {
+                  if (pInWindow[i + j] == 0)
+                     nReducedCommandSize += TOKEN_PREFIX_SIZE + TOKEN_SIZE_4BIT_MATCH + 4;
+                  else
+                     nReducedCommandSize += 8;
+               }
+
                if (pBestMatch[nNextIndex].offset == nRepMatchOffset && nReducedFollowsLiteral && pBestMatch[nNextIndex].length >= 2) {
                   nReducedCommandSize += apultra_get_rep_offset_varlen_size() + apultra_get_match_varlen_size(pBestMatch[nNextIndex].length, pBestMatch[nNextIndex].offset, 1);
                }
@@ -790,7 +770,7 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
                   }
                }
 
-               if (!nCannotEncode && nOriginalCombinedCommandSize > (nReducedCommandSize + nLoss)) {
+               if (!nCannotEncode && nOriginalCombinedCommandSize > nReducedCommandSize) {
                   /* Reduce */
                   int nMatchLen = pMatch->length;
                   int j;
