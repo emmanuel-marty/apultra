@@ -361,9 +361,16 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
                      apultra_arrival *pDestArrival = &pDestSlots[n];
                      if (nCodingChoiceCost < pDestArrival->cost ||
                         (nCodingChoiceCost == pDestArrival->cost && nScore < pDestArrival->score)) {
+                        int z;
+
+                        for (z = n; z < NMATCHES_PER_ARRIVAL - 1; z++) {
+                           if (pDestSlots[z].rep_offset == arrival[(i << MATCHES_PER_ARRIVAL_SHIFT) + j].rep_offset)
+                              break;
+                        }
+
                         memmove(&pDestSlots[n + 1],
                            &pDestSlots[n],
-                           sizeof(apultra_arrival) * (NMATCHES_PER_ARRIVAL - n - 1));
+                           sizeof(apultra_arrival) * (z - n));
 
                         pDestArrival->cost = nCodingChoiceCost;
                         pDestArrival->from_pos = i;
@@ -407,9 +414,16 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
 
                      if (nCodingChoiceCost < pDestArrival->cost ||
                         (nCodingChoiceCost == pDestArrival->cost && nScore < pDestArrival->score)) {
+                        int z;
+
+                        for (z = n; z < NMATCHES_PER_ARRIVAL - 1; z++) {
+                           if (pDestSlots[z].rep_offset == arrival[(i << MATCHES_PER_ARRIVAL_SHIFT) + j].rep_offset)
+                              break;
+                        }
+
                         memmove(&pDestSlots[n + 1],
                            &pDestSlots[n],
-                           sizeof(apultra_arrival) * (NMATCHES_PER_ARRIVAL - n - 1));
+                           sizeof(apultra_arrival) * (z - n));
 
                         pDestArrival->cost = nCodingChoiceCost;
                         pDestArrival->from_pos = i;
@@ -507,9 +521,16 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
 
                         if (nCodingChoiceCost < pDestArrival->cost ||
                            (nCodingChoiceCost == pDestArrival->cost && nScore < pDestArrival->score)) {
+                           int z;
+
+                           for (z = n; z < NMATCHES_PER_ARRIVAL - 1; z++) {
+                              if (pDestSlots[z].rep_offset == nRepOffset)
+                                 break;
+                           }
+
                            memmove(&pDestSlots[n + 1],
                               &pDestSlots[n],
-                              sizeof(apultra_arrival) * (NMATCHES_PER_ARRIVAL - n - 1));
+                              sizeof(apultra_arrival) * (z - n ));
 
                            pDestArrival->cost = nCodingChoiceCost;
                            pDestArrival->from_pos = i;
@@ -594,9 +615,16 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
 
                            if (nCodingChoiceCost < pDestArrival->cost ||
                               (nCodingChoiceCost == pDestArrival->cost && nScore < pDestArrival->score)) {
+                              int z;
+                              
+                              for (z = n; z < NMATCHES_PER_ARRIVAL - 1; z++) {
+                                 if (pDestSlots[z].rep_offset == nDestMatchOffset)
+                                    break;
+                              }
+
                               memmove(&pDestSlots[n + 1],
                                  &pDestSlots[n],
-                                 sizeof(apultra_arrival) * (NMATCHES_PER_ARRIVAL - n - 1));
+                                 sizeof(apultra_arrival) * (z - n));
 
                               pDestArrival->cost = nCodingChoiceCost;
                               pDestArrival->from_pos = i;
@@ -643,9 +671,16 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
 
                               if (nCodingChoiceCost < pDestArrival->cost ||
                                  (nCodingChoiceCost == pDestArrival->cost && nScore < pDestArrival->score)) {
+                                 int z;
+
+                                 for (z = n; z < NMATCHES_PER_ARRIVAL - 1; z++) {
+                                    if (pDestSlots[z].rep_offset == nRepOffset)
+                                       break;
+                                 }
+
                                  memmove(&pDestSlots[n + 1],
                                     &pDestSlots[n],
-                                    sizeof(apultra_arrival) * (NMATCHES_PER_ARRIVAL - n - 1));
+                                    sizeof(apultra_arrival) * (z - n));
 
                                  pDestArrival->cost = nCodingChoiceCost;
                                  pDestArrival->from_pos = i;
