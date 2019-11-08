@@ -323,7 +323,7 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
    apultra_arrival *arrival = pCompressor->arrival;
    int i, j, n;
 
-   memset(arrival + (nStartOffset << MATCHES_PER_ARRIVAL_SHIFT), 0, sizeof(apultra_arrival) * ((nEndOffset - nStartOffset) << MATCHES_PER_ARRIVAL_SHIFT));
+   memset(arrival + (nStartOffset << MATCHES_PER_ARRIVAL_SHIFT), 0, sizeof(apultra_arrival) * ((nEndOffset - nStartOffset + 1) << MATCHES_PER_ARRIVAL_SHIFT));
 
    arrival[nStartOffset << MATCHES_PER_ARRIVAL_SHIFT].from_slot = -1;
    arrival[nStartOffset << MATCHES_PER_ARRIVAL_SHIFT].rep_offset = *nCurRepMatchOffset;
