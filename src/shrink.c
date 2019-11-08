@@ -204,7 +204,7 @@ static inline int apultra_get_match_varlen_size(int nLength, const int nMatchOff
    if (nLength == 1 && nMatchOffset < 16)
       return 0;
    else {
-      if (nLength <= 3 && nMatchOffset < 128)
+      if (nLength <= 3 && nMatchOffset < 128 && !nIsRepMatch)
          return 0;
       else {
          if (nMatchOffset < 128 && !nIsRepMatch)
