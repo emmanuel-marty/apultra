@@ -678,7 +678,7 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
    
    int nEndCost = end_arrival->cost;
    
-   while (end_arrival->from_slot > 0 && end_arrival->from_pos >= 0 && end_arrival->from_pos < nEndOffset) {
+   while (end_arrival->from_slot > 0 && end_arrival->from_pos >= 0 && (int)end_arrival->from_pos < nEndOffset) {
       pCompressor->best_match[end_arrival->from_pos].length = end_arrival->match_len;
       pCompressor->best_match[end_arrival->from_pos].offset = end_arrival->match_offset;
       
