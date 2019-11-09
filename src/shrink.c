@@ -836,13 +836,15 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
             /* Join large matches */
 
             int nNextIndex = i + pMatch->length + pBestMatch[i + pMatch->length].length;
+            int nNextFollowsLiteral = 0;
             int nCannotEncode = 0;
 
             while (nNextIndex < nEndOffset && pBestMatch[nNextIndex].length < 2) {
                nNextIndex++;
+               nNextFollowsLiteral = 1;
             }
 
-            if (nNextIndex < nEndOffset && pBestMatch[nNextIndex].length >= 2 &&
+            if (nNextIndex < nEndOffset && nNextFollowsLiteral && pBestMatch[nNextIndex].length >= 2 &&
                pBestMatch[nNextIndex].offset == pBestMatch[i + pMatch->length].offset) {
                if ((pBestMatch[nNextIndex].offset >= MINMATCH3_OFFSET && pBestMatch[nNextIndex].length < 3) ||
                   (pBestMatch[nNextIndex].offset >= MINMATCH4_OFFSET && pBestMatch[nNextIndex].length < 4)) {
