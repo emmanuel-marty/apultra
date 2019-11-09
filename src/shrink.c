@@ -821,25 +821,42 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
             }
          }
 
-         if ((i + pMatch->length) < nEndOffset && pMatch->length >= LCP_MAX &&
-            pBestMatch[i + pMatch->length].offset &&
+         if ((i + pMatch->length) < nEndOffset && pMatch->offset > 0 && pMatch->length >= LEAVE_ALONE_MATCH_SIZE &&
+            pBestMatch[i + pMatch->length].offset > 0 &&
             pBestMatch[i + pMatch->length].length >= 2 &&
-            pBestMatch[i + pMatch->length].offset <= pMatch->length &&
             (pMatch->length + pBestMatch[i + pMatch->length].length) <= MAX_VARLEN &&
             (i + pMatch->length) > pMatch->offset &&
-            (i - pMatch->offset + pMatch->length + pBestMatch[i + pMatch->length].length) < nEndOffset &&
-            !memcmp(pInWindow + i - pMatch->offset + pMatch->length,
+            (i + pMatch->length) > pBestMatch[i + pMatch->length].offset &&
+            (i + pMatch->length + pBestMatch[i + pMatch->length].length) <= nEndOffset &&
+            !memcmp(pInWindow + i + pMatch->length - pMatch->offset,
                pInWindow + i + pMatch->length - pBestMatch[i + pMatch->length].offset,
                pBestMatch[i + pMatch->length].length)) {
             int nMatchLen = pMatch->length;
 
             /* Join large matches */
 
-            pMatch->length += pBestMatch[i + nMatchLen].length;
-            pBestMatch[i + nMatchLen].offset = 0;
-            pBestMatch[i + nMatchLen].length = -1;
-            nDidReduce = 1;
-            continue;
+            int nNextIndex = i + pMatch->length + pBestMatch[i + pMatch->length].length;
+            int nCannotEncode = 0;
+
+            while (nNextIndex < nEndOffset && pBestMatch[nNextIndex].length < 2) {
+               nNextIndex++;
+            }
+
+            if (nNextIndex < nEndOffset && pBestMatch[nNextIndex].length >= 2 &&
+               pBestMatch[nNextIndex].offset == pBestMatch[i + pMatch->length].offset) {
+               if ((pBestMatch[nNextIndex].offset >= MINMATCH3_OFFSET && pBestMatch[nNextIndex].length < 3) ||
+                  (pBestMatch[nNextIndex].offset >= MINMATCH4_OFFSET && pBestMatch[nNextIndex].length < 4)) {
+                  nCannotEncode = 1;
+               }
+            }
+
+            if (!nCannotEncode) {
+               pMatch->length += pBestMatch[i + nMatchLen].length;
+               pBestMatch[i + nMatchLen].offset = 0;
+               pBestMatch[i + nMatchLen].length = -1;
+               nDidReduce = 1;
+               continue;
+            }
          }
 
          if (pMatch->offset == nRepMatchOffset && nFollowsLiteral && pMatch->length >= 2) {

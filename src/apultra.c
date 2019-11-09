@@ -578,7 +578,7 @@ static int do_self_test(const unsigned int nOptions, const int nIsQuickTest) {
             /* Try to compress it, expected to succeed */
             size_t nActualCompressedSize = apultra_compress(pGeneratedData, pCompressedData, nGeneratedDataSize, apultra_get_max_compressed_size(nGeneratedDataSize),
                nFlags, NULL, NULL);
-            if (nActualCompressedSize == -1 || nActualCompressedSize < (1 + 2 + 8 /* footer */)) {
+            if (nActualCompressedSize == -1 || nActualCompressedSize < (1 + 1 + 1 /* footer */)) {
                free(pTmpDecompressedData);
                pTmpDecompressedData = NULL;
                free(pTmpCompressedData);
