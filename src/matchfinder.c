@@ -262,7 +262,7 @@ void apultra_skip_matches(apultra_compressor *pCompressor, const int nStartOffse
  * @param nEndOffset offset to end finding matches at (typically the size of the total input window in bytes
  */
 void apultra_find_all_matches(apultra_compressor *pCompressor, const int nMatchesPerOffset, const int nStartOffset, const int nEndOffset) {
-   apultra_match *pMatch = pCompressor->match + (nStartOffset * nMatchesPerOffset);
+   apultra_match *pMatch = pCompressor->match;
    int i;
 
    for (i = nStartOffset; i < nEndOffset; i++) {
