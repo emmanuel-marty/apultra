@@ -821,9 +821,10 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
             }
          }
 
-         if ((i + pMatch->length) < nEndOffset && pMatch->offset > 0 && pMatch->length >= LEAVE_ALONE_MATCH_SIZE &&
+         if ((i + pMatch->length) < nEndOffset && pMatch->offset > 0 && pMatch->length >= 2 &&
             pBestMatch[i + pMatch->length].offset > 0 &&
             pBestMatch[i + pMatch->length].length >= 2 &&
+            (pMatch->length + pBestMatch[i + pMatch->length].length) >= LEAVE_ALONE_MATCH_SIZE &&
             (pMatch->length + pBestMatch[i + pMatch->length].length) <= MAX_VARLEN &&
             (i + pMatch->length) > pMatch->offset &&
             (i + pMatch->length) > pBestMatch[i + pMatch->length].offset &&

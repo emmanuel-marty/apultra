@@ -40,7 +40,7 @@ extern "C" {
 #endif
 
 #define LCP_BITS 10
-#define LCP_MAX (1U<<(LCP_BITS - 1))
+#define LCP_MAX ((1U<<LCP_BITS) - 1)
 #define LCP_SHIFT (31-LCP_BITS)
 #define LCP_MASK (((1U<<LCP_BITS) - 1) << LCP_SHIFT)
 #define POS_MASK ((1U<<LCP_SHIFT) - 1)
