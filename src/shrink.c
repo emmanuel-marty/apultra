@@ -455,13 +455,14 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
       for (m = 0; m < NMATCHES_PER_INDEX && match[m].length; m++) {
          int nCurMinMatchSize = MIN_MATCH_SIZE;
          int nMatchLen = match[m].length;
+         int nMatchOffset = match[m].offset;
          int nStartingMatchLen, k;
          int nMaxRepLen[NMATCHES_PER_ARRIVAL];
 
-         if (match[m].offset >= 16)
+         if (nMatchOffset >= 16)
             nCurMinMatchSize = 2;
 
-         if (match[m].offset < 16 && i >= (int)match[m].offset && pInWindow[i - match[m].offset] == 0 && nCurMinMatchSize < 2) {
+         if (nMatchOffset < 16 && i >= (int)nMatchOffset && pInWindow[i - nMatchOffset] == 0 && nCurMinMatchSize < 2) {
             /* This will already be covered by a 0-offset match */
             nCurMinMatchSize = 2;
          }
@@ -474,12 +475,12 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
             int nCurMaxLen = 0;
 
             if (arrival[(i << MATCHES_PER_ARRIVAL_SHIFT) + j].follows_literal &&
-               match[m].offset != nRepOffset &&
+               nMatchOffset != nRepOffset &&
                nRepOffset &&
                i > nRepOffset &&
                (i - nRepOffset + nMatchLen) <= nEndOffset) {
                
-               while (nCurMaxLen < nMatchLen && pInWindow[i - nRepOffset + nCurMaxLen] == pInWindow[i - match[m].offset + nCurMaxLen])
+               while (nCurMaxLen < nMatchLen && pInWindow[i - nRepOffset + nCurMaxLen] == pInWindow[i - nMatchOffset + nCurMaxLen])
                   nCurMaxLen++;
             }
 
@@ -489,7 +490,7 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
             nMaxRepLen[j++] = 0;
 
          if (nInsertForwardReps)
-            apultra_insert_forward_match(pCompressor, pInWindow, i, match[m].offset, nStartOffset, nEndOffset, 0);
+            apultra_insert_forward_match(pCompressor, pInWindow, i, nMatchOffset, nStartOffset, nEndOffset, 0);
 
          if (nMatchLen >= LEAVE_ALONE_MATCH_SIZE && i >= nMatchLen)
             nStartingMatchLen = nMatchLen;
@@ -539,7 +540,7 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
                            pDestArrival->cost = nCodingChoiceCost;
                            pDestArrival->from_pos = i;
                            pDestArrival->from_slot = j + 1;
-                           pDestArrival->match_offset = match[m].offset;
+                           pDestArrival->match_offset = nMatchOffset;
                            pDestArrival->match_len = 1;
                            pDestArrival->follows_literal = 1;
                            pDestArrival->score = nScore;
@@ -560,30 +561,42 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
             int nNoRepMatchOffsetCostNoLit, nNoRepMatchOffsetCostFollowsLit;
 
             if (nStartingMatchLen <= 3) {
-               nNoRepMatchOffsetCostNoLit = apultra_get_offset_varlen_size(2, match[m].offset, 0);
-               nNoRepMatchOffsetCostFollowsLit = apultra_get_offset_varlen_size(2, match[m].offset, 1);
+               nNoRepMatchOffsetCostNoLit = apultra_get_offset_varlen_size(2, nMatchOffset, 0);
+               nNoRepMatchOffsetCostFollowsLit = apultra_get_offset_varlen_size(2, nMatchOffset, 1);
             }
             else {
-               nNoRepMatchOffsetCostNoLit = apultra_get_offset_varlen_size(4, match[m].offset, 0);
-               nNoRepMatchOffsetCostFollowsLit = apultra_get_offset_varlen_size(4, match[m].offset, 1);
+               nNoRepMatchOffsetCostNoLit = apultra_get_offset_varlen_size(4, nMatchOffset, 0);
+               nNoRepMatchOffsetCostFollowsLit = apultra_get_offset_varlen_size(4, nMatchOffset, 1);
             }
 
             for (k = nStartingMatchLen; k <= nMatchLen; k++) {
-               int nNoRepMatchMatchLenCost = apultra_get_match_varlen_size(k, match[m].offset, 0);
-               int nRepMatchMatchLenCost = apultra_get_match_varlen_size(k, match[m].offset, 1);
+               int nNoRepMatchMatchLenCost;
+               int nRepMatchMatchLenCost = apultra_get_gamma2_size(k);
+
+               if (k <= 3 && nMatchOffset < 128)
+                  nNoRepMatchMatchLenCost = 0;
+               else {
+                  if (nMatchOffset < 128 || nMatchOffset >= MINMATCH4_OFFSET)
+                     nNoRepMatchMatchLenCost = apultra_get_gamma2_size(k - 2);
+                  else if (nMatchOffset < MINMATCH3_OFFSET)
+                     nNoRepMatchMatchLenCost = nRepMatchMatchLenCost;
+                  else
+                     nNoRepMatchMatchLenCost = apultra_get_gamma2_size(k - 1);
+               }
+
                apultra_arrival *pDestSlots = &arrival[(i + k) << MATCHES_PER_ARRIVAL_SHIFT];
 
                for (j = 0; j < NMATCHES_PER_ARRIVAL && arrival[(i << MATCHES_PER_ARRIVAL_SHIFT) + j].from_slot; j++) {
                   int nRepOffset = arrival[(i << MATCHES_PER_ARRIVAL_SHIFT) + j].rep_offset;
-                  int nIsRepMatch = (match[m].offset == nRepOffset &&
+                  int nIsRepMatch = (nMatchOffset == nRepOffset &&
                      arrival[(i << MATCHES_PER_ARRIVAL_SHIFT) + j].follows_literal) ? 1 : 0;
                   int nCannotEncode = 0;
 
                   int nMatchOffsetCost, nMatchLenCost, nScore;
                   if (nIsRepMatch == 0) {
-                     if (match[m].offset >= MINMATCH3_OFFSET && k < 3)
+                     if (nMatchOffset >= MINMATCH3_OFFSET && k < 3)
                         nCannotEncode = 1;
-                     if (match[m].offset >= MINMATCH4_OFFSET && k < 4)
+                     if (nMatchOffset >= MINMATCH4_OFFSET && k < 4)
                         nCannotEncode = 1;
 
                      nMatchOffsetCost = arrival[(i << MATCHES_PER_ARRIVAL_SHIFT) + j].follows_literal ?
@@ -602,7 +615,7 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
 
                   if (!nCannotEncode && nCodingChoiceCost <= pDestSlots[NMATCHES_PER_ARRIVAL - 1].cost) {
                      int exists = 0;
-                     const unsigned int nDestMatchOffset = match[m].offset;
+                     const unsigned int nDestMatchOffset = nMatchOffset;
 
                      for (n = 0;
                         n < NMATCHES_PER_ARRIVAL && pDestSlots[n].cost <= nCodingChoiceCost;
@@ -633,7 +646,7 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
                               pDestArrival->cost = nCodingChoiceCost;
                               pDestArrival->from_pos = i;
                               pDestArrival->from_slot = j + 1;
-                              pDestArrival->match_offset = match[m].offset;
+                              pDestArrival->match_offset = nMatchOffset;
                               pDestArrival->match_len = k;
                               pDestArrival->follows_literal = 0;
                               pDestArrival->score = nScore;
@@ -653,7 +666,7 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
                   if (nMaxRepLen[j] >= k) {
                      /* A match is possible at the rep offset; insert the extra coding choice. */
 
-                     nMatchLenCost = apultra_get_match_varlen_size(k, nRepOffset, 1);
+                     nMatchLenCost = nRepMatchMatchLenCost;
                      nCodingChoiceCost = nPrevCost + TOKEN_PREFIX_SIZE /* token */ /* the actual cost of the literals themselves accumulates up the chain */ + nRepMatchOffsetCost + nMatchLenCost;
                      nScore = arrival[(i << MATCHES_PER_ARRIVAL_SHIFT) + j].score + 2;
 
@@ -705,8 +718,8 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
                }
 
                if (k == 3) {
-                  nNoRepMatchOffsetCostNoLit = apultra_get_offset_varlen_size(4, match[m].offset, 0);
-                  nNoRepMatchOffsetCostFollowsLit = apultra_get_offset_varlen_size(4, match[m].offset, 1);
+                  nNoRepMatchOffsetCostNoLit = apultra_get_offset_varlen_size(4, nMatchOffset, 0);
+                  nNoRepMatchOffsetCostFollowsLit = apultra_get_offset_varlen_size(4, nMatchOffset, 1);
                }
             }
          }
