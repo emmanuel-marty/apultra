@@ -723,6 +723,9 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
                }
             }
          }
+
+         if (match[m].length >= 512)
+            break;
       }
    }
    
