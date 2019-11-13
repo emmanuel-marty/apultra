@@ -39,16 +39,18 @@
 extern "C" {
 #endif
 
-#define LCP_BITS 10
-#define LCP_MAX ((1U<<LCP_BITS) - 1)
-#define LCP_SHIFT (31-LCP_BITS)
-#define LCP_MASK (((1U<<LCP_BITS) - 1) << LCP_SHIFT)
-#define POS_MASK ((1U<<LCP_SHIFT) - 1)
-#define VISITED_FLAG 0x80000000
-#define EXCL_VISITED_MASK  0x7fffffff
+#define LCP_BITS 14
+#define TAG_BITS 3
+#define LCP_MAX ((1U<<(LCP_BITS - TAG_BITS)) - 1)
+#define LCP_AND_TAG_MAX ((1U<<LCP_BITS) - 1)
+#define LCP_SHIFT (63-LCP_BITS)
+#define LCP_MASK (((1ULL<<LCP_BITS) - 1) << LCP_SHIFT)
+#define POS_MASK ((1ULL<<LCP_SHIFT) - 1)
+#define VISITED_FLAG 0x8000000000000000ULL
+#define EXCL_VISITED_MASK  0x7fffffffffffffffULL
 
-#define NMATCHES_PER_ARRIVAL 8
-#define MATCHES_PER_ARRIVAL_SHIFT 3
+#define NMATCHES_PER_ARRIVAL 16
+#define MATCHES_PER_ARRIVAL_SHIFT 4
 
 #define NMATCHES_PER_INDEX 64
 #define MATCHES_PER_INDEX_SHIFT 6
@@ -57,7 +59,7 @@ extern "C" {
 
 /** One match option */
 typedef struct _apultra_match {
-   unsigned int length:10;
+   unsigned int length:11;
    unsigned int offset:21;
 } apultra_match;
 
@@ -75,12 +77,12 @@ typedef struct {
    int follows_literal:1;
 
    unsigned int rep_offset:21;
-   unsigned int rep_len:10;
+   unsigned int rep_len:11;
    unsigned int rep_pos;
    int score;
 
    unsigned int match_offset:21;
-   unsigned int match_len:10;
+   unsigned int match_len:11;
 } apultra_arrival;
 
 /** Compression statistics */
@@ -116,9 +118,9 @@ typedef struct _apultra_stats {
 /** Compression context */
 typedef struct _apultra_compressor {
    divsufsort_ctx_t divsufsort_context;
-   unsigned int *intervals;
-   unsigned int *pos_data;
-   unsigned int *open_intervals;
+   unsigned long long *intervals;
+   unsigned long long *pos_data;
+   unsigned long long *open_intervals;
    apultra_match *match;
    apultra_final_match *best_match;
    apultra_arrival *arrival;
