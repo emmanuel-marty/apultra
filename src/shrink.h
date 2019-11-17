@@ -76,8 +76,7 @@ typedef struct {
    int from_slot:8;
    int follows_literal:1;
 
-   unsigned int rep_offset:21;
-   unsigned int rep_len:11;
+   unsigned int rep_offset;
    unsigned int rep_pos;
    int score;
 
