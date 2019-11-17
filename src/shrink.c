@@ -784,7 +784,7 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
                nReducedPartialCommandSize = apultra_get_rep_offset_varlen_size() + apultra_get_match_varlen_size(pBestMatch[i + 1].length, pBestMatch[i + 1].offset, 1);
             }
             else {
-               nReducedPartialCommandSize += apultra_get_offset_varlen_size(pBestMatch[i + 1].length, pBestMatch[i + 1].offset, 1) + apultra_get_match_varlen_size(pBestMatch[i + 1].length, pBestMatch[i + 1].offset, 0);
+               nReducedPartialCommandSize = apultra_get_offset_varlen_size(pBestMatch[i + 1].length, pBestMatch[i + 1].offset, 1) + apultra_get_match_varlen_size(pBestMatch[i + 1].length, pBestMatch[i + 1].offset, 0);
             }
 
             if (nReducedPartialCommandSize < nCurPartialCommandSize) {
