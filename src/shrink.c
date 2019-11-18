@@ -763,8 +763,8 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
 
       if (pMatch->length <= 1 &&
          (i + 1) < nEndOffset &&
-         pBestMatch[i + 1].offset &&
          pBestMatch[i + 1].length >= 2 &&
+         pBestMatch[i + 1].offset &&
          i >= pBestMatch[i + 1].offset &&
          (i + pBestMatch[i + 1].length + 1) <= nEndOffset &&
          !memcmp(pInWindow + i - (pBestMatch[i + 1].offset), pInWindow + i, pBestMatch[i + 1].length + 1)) {
@@ -1235,6 +1235,7 @@ static int apultra_optimize_and_write_block(apultra_compressor *pCompressor, con
    int nOutOffset = 0;
    const int nMatchesPerArrival = ((nBlockFlags & 3) == 3) ? NMATCHES_PER_ARRIVAL : (NMATCHES_PER_ARRIVAL / 2);
 
+   memset(pCompressor->best_match, 0, BLOCK_SIZE * sizeof(apultra_final_match));
    apultra_optimize_forward(pCompressor, pInWindow, nPreviousBlockSize, nPreviousBlockSize + nInDataSize, 1 /* nInsertForwardReps */, nCurRepMatchOffset, nBlockFlags, nMatchesPerArrival);
 
    /* Pick optimal matches */
