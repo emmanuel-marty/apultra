@@ -757,6 +757,7 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
    int nRepMatchOffset = *nCurRepMatchOffset;
    int nFollowsLiteral = 0;
    int nDidReduce = 0;
+   int nLastMatchLen = 0;
 
    for (i = nStartOffset; i < nEndOffset; ) {
       apultra_final_match *pMatch = pBestMatch + i;
@@ -771,7 +772,7 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
          if ((pBestMatch[i + 1].offset < MINMATCH3_OFFSET || (pBestMatch[i + 1].length + 1) >= 3 || (pBestMatch[i + 1].offset == nRepMatchOffset && nFollowsLiteral)) &&
             (pBestMatch[i + 1].offset < MINMATCH4_OFFSET || (pBestMatch[i + 1].length + 1) >= 4 || (pBestMatch[i + 1].offset == nRepMatchOffset && nFollowsLiteral))) {
 
-            int nCurPartialCommandSize = TOKEN_PREFIX_SIZE /* literal bit */ + ((pMatch->offset == 1) ? (TOKEN_SIZE_4BIT_MATCH + 4) : 8 /* literal size */);
+            int nCurPartialCommandSize = TOKEN_PREFIX_SIZE /* literal bit */ + ((pMatch->length == 1) ? (TOKEN_SIZE_4BIT_MATCH + 4) : 8 /* literal size */);
             if (pBestMatch[i + 1].offset == nRepMatchOffset /* always follows a literal, the one at the current position */) {
                nCurPartialCommandSize += apultra_get_rep_offset_varlen_size() + apultra_get_match_varlen_size(pBestMatch[i + 1].length, pBestMatch[i + 1].offset, 1);
             }
@@ -784,10 +785,10 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
                nReducedPartialCommandSize = apultra_get_rep_offset_varlen_size() + apultra_get_match_varlen_size(pBestMatch[i + 1].length, pBestMatch[i + 1].offset, 1);
             }
             else {
-               nReducedPartialCommandSize = apultra_get_offset_varlen_size(pBestMatch[i + 1].length, pBestMatch[i + 1].offset, 1) + apultra_get_match_varlen_size(pBestMatch[i + 1].length, pBestMatch[i + 1].offset, 0);
+               nReducedPartialCommandSize = apultra_get_offset_varlen_size(pBestMatch[i + 1].length, pBestMatch[i + 1].offset, nFollowsLiteral) + apultra_get_match_varlen_size(pBestMatch[i + 1].length, pBestMatch[i + 1].offset, 0);
             }
 
-            if (nReducedPartialCommandSize < nCurPartialCommandSize) {
+            if (nReducedPartialCommandSize < nCurPartialCommandSize || (nFollowsLiteral == 0 && nLastMatchLen >= LCP_MAX)) {
                /* Merge */
                pBestMatch[i].length = pBestMatch[i + 1].length + 1;
                pBestMatch[i].offset = pBestMatch[i + 1].offset;
@@ -922,21 +923,25 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
             /* Rep-match */
             nRepMatchOffset = pMatch->offset;
             nFollowsLiteral = 0;
+            nLastMatchLen = pMatch->length;
          }
          else {
             if (pMatch->length == 1 && pMatch->offset < 16) {
                /* 4 bits offset */
                nFollowsLiteral = 1;
+               nLastMatchLen = 0;
             }
             else if (pMatch->length <= 3 && pMatch->offset < 128) {
                /* 7 bits offset + 1 bit length */
                nRepMatchOffset = pMatch->offset;
                nFollowsLiteral = 0;
+               nLastMatchLen = pMatch->length;
             }
             else {
                /* 8+n bits offset */
                nRepMatchOffset = pMatch->offset;
                nFollowsLiteral = 0;
+               nLastMatchLen = pMatch->length;
             }
          }
 
@@ -947,6 +952,7 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
          nNumLiterals++;
          i++;
          nFollowsLiteral = 1;
+         nLastMatchLen = 0;
       }
    }
 
