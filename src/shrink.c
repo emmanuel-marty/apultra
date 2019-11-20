@@ -765,6 +765,7 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
       if (pMatch->length <= 1 &&
          (i + 1) < nEndOffset &&
          pBestMatch[i + 1].length >= 2 &&
+         pBestMatch[i + 1].length < MAX_VARLEN &&
          pBestMatch[i + 1].offset &&
          i >= pBestMatch[i + 1].offset &&
          (i + pBestMatch[i + 1].length + 1) <= nEndOffset &&
