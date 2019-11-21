@@ -74,7 +74,7 @@ typedef struct {
    int cost;
    unsigned int from_pos:21;
    int from_slot:8;
-   int follows_literal:1;
+   unsigned int follows_literal:1;
 
    unsigned int rep_offset;
    unsigned int rep_pos;
