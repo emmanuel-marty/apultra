@@ -659,6 +659,7 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
                                  pDestArrival->score = nScore;
                                  pDestArrival->rep_offset = nMatchOffset;
                                  pDestArrival->rep_pos = i;
+                                 nMinMatchLen[j] = k + 1;
                                  break;
                               }
                            }
