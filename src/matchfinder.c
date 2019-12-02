@@ -252,7 +252,7 @@ int apultra_find_matches_at(apultra_compressor *pCompressor, const int nOffset, 
 
       if ((matchptr - pMatches) < nMaxMatches) {
          if (nMatchOffset <= MAX_OFFSET) {
-            if (nPrevOffset && nPrevLen > 2 && nMatchOffset == (nPrevOffset - 1) && nMatchLen == (nPrevLen - 1) && cur_depth && nCurDepth < 65535) {
+            if (nPrevOffset && nPrevLen > 2 && nMatchOffset == (nPrevOffset - 1) && nMatchLen == (nPrevLen - 1) && cur_depth && nCurDepth < LCP_MAX) {
                nCurDepth++;
                *cur_depth = nCurDepth;
             }

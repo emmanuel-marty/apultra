@@ -779,7 +779,7 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
             }
 
             if (nNextIndex < nEndOffset && pBestMatch[nNextIndex].length >= 2) {
-               if (pMatch->length >= 2 && nRepMatchOffset != pMatch->offset && pBestMatch[nNextIndex].offset && pMatch->offset != pBestMatch[nNextIndex].offset &&
+               if (pMatch->length >= 2 && nRepMatchOffset && nRepMatchOffset != pMatch->offset && pBestMatch[nNextIndex].offset && pMatch->offset != pBestMatch[nNextIndex].offset &&
                   nNextFollowsLiteral) {
                   /* Try to gain a match forward */
                   if (i >= pBestMatch[nNextIndex].offset && (i - pBestMatch[nNextIndex].offset + pMatch->length) <= nEndOffset) {
@@ -812,6 +812,7 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
 
                               nPartialSizeAfter += apultra_get_rep_offset_varlen_size();
                               nPartialSizeAfter += apultra_get_match_varlen_size(pBestMatch[nNextIndex].length, pBestMatch[nNextIndex].offset, 1);
+                              nPartialSizeAfter += apultra_get_literals_varlen_size(pMatch->length - nMaxLen);
 
                               for (int j = nMaxLen; j < pMatch->length; j++) {
                                  if (pInWindow[i + j] == 0 || match1[i + j])
