@@ -186,18 +186,20 @@ int apultra_build_suffix_array(apultra_compressor *pCompressor, const unsigned c
  * @param pCompressor compression context
  * @param nOffset offset to find matches at, in the input window
  * @param pMatches pointer to returned matches
+ * @param pMatchDepth pointer to returned match depths
  * @param pMatch1 pointer to 1-byte length, 4 bit offset match
  * @param nMaxMatches maximum number of matches to return (0 for none)
  *
  * @return number of matches
  */
-int apultra_find_matches_at(apultra_compressor *pCompressor, const int nOffset, apultra_match *pMatches, unsigned char *pMatch1, const int nMaxMatches) {
+int apultra_find_matches_at(apultra_compressor *pCompressor, const int nOffset, apultra_match *pMatches, unsigned short *pMatchDepth, unsigned char *pMatch1, const int nMaxMatches) {
    unsigned long long *intervals = pCompressor->intervals;
    unsigned long long *pos_data = pCompressor->pos_data;
    unsigned long long ref;
    unsigned long long super_ref;
    unsigned long long match_pos;
    apultra_match *matchptr;
+   unsigned short *depthptr;
 
    *pMatch1 = 0;
 
@@ -233,6 +235,12 @@ int apultra_find_matches_at(apultra_compressor *pCompressor, const int nOffset, 
    /* Ascend indirectly via pos_data[] links.  */
    match_pos = super_ref & EXCL_VISITED_MASK;
    matchptr = pMatches;
+   depthptr = pMatchDepth;
+   int nPrevOffset = 0;
+   int nPrevLen = 0;
+   int nCurDepth = 0;
+   unsigned short *cur_depth = NULL;
+   
    for (;;) {
       while ((super_ref = pos_data[match_pos]) > ref)
          match_pos = intervals[super_ref & POS_MASK] & EXCL_VISITED_MASK;
@@ -244,9 +252,23 @@ int apultra_find_matches_at(apultra_compressor *pCompressor, const int nOffset, 
 
       if ((matchptr - pMatches) < nMaxMatches) {
          if (nMatchOffset <= MAX_OFFSET) {
-            matchptr->length = nMatchLen;
-            matchptr->offset = nMatchOffset;
-            matchptr++;
+            if (nPrevOffset && nPrevLen > 2 && nMatchOffset == (nPrevOffset - 1) && nMatchLen == (nPrevLen - 1) && cur_depth && nCurDepth < 65535) {
+               nCurDepth++;
+               *cur_depth = nCurDepth;
+            }
+            else {
+               nCurDepth = 0;
+
+               cur_depth = depthptr;
+               matchptr->length = nMatchLen;
+               matchptr->offset = nMatchOffset;
+               *depthptr = 0;
+               matchptr++;
+               depthptr++;
+            }
+
+            nPrevLen = nMatchLen;
+            nPrevOffset = nMatchOffset;
          }
       }
 
@@ -271,13 +293,14 @@ int apultra_find_matches_at(apultra_compressor *pCompressor, const int nOffset, 
  */
 void apultra_skip_matches(apultra_compressor *pCompressor, const int nStartOffset, const int nEndOffset) {
    apultra_match match;
+   unsigned short depth;
    unsigned char match1;
    int i;
 
    /* Skipping still requires scanning for matches, as this also performs a lazy update of the intervals. However,
     * we don't store the matches. */
    for (i = nStartOffset; i < nEndOffset; i++) {
-      apultra_find_matches_at(pCompressor, i, &match, &match1, 0);
+      apultra_find_matches_at(pCompressor, i, &match, &depth, &match1, 0);
    }
 }
 
@@ -291,19 +314,22 @@ void apultra_skip_matches(apultra_compressor *pCompressor, const int nStartOffse
  */
 void apultra_find_all_matches(apultra_compressor *pCompressor, const int nMatchesPerOffset, const int nStartOffset, const int nEndOffset) {
    apultra_match *pMatch = pCompressor->match;
+   unsigned short *pMatchDepth = pCompressor->match_depth;
    unsigned char *pMatch1 = pCompressor->match1;
    int i;
 
    for (i = nStartOffset; i < nEndOffset; i++) {
-      int nMatches = apultra_find_matches_at(pCompressor, i, pMatch, pMatch1, nMatchesPerOffset);
+      int nMatches = apultra_find_matches_at(pCompressor, i, pMatch, pMatchDepth, pMatch1, nMatchesPerOffset);
 
       while (nMatches < nMatchesPerOffset) {
          pMatch[nMatches].length = 0;
          pMatch[nMatches].offset = 0;
+         pMatchDepth[nMatches] = 0;
          nMatches++;
       }
 
       pMatch += nMatchesPerOffset;
+      pMatchDepth += nMatchesPerOffset;
       pMatch1++;
    }
 }
