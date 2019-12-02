@@ -58,11 +58,12 @@ int apultra_build_suffix_array(apultra_compressor *pCompressor, const unsigned c
  * @param pCompressor compression context
  * @param nOffset offset to find matches at, in the input window
  * @param pMatches pointer to returned matches
+ * @param pMatch1 pointer to 1-byte length, 4 bit offset match
  * @param nMaxMatches maximum number of matches to return (0 for none)
  *
  * @return number of matches
  */
-int apultra_find_matches_at(apultra_compressor *pCompressor, const int nOffset, apultra_match *pMatches, const int nMaxMatches);
+int apultra_find_matches_at(apultra_compressor *pCompressor, const int nOffset, apultra_match *pMatches, unsigned char *pMatch1, const int nMaxMatches);
 
 /**
  * Skip previously compressed bytes

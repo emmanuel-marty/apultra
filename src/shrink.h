@@ -121,6 +121,7 @@ typedef struct _apultra_compressor {
    unsigned long long *pos_data;
    unsigned long long *open_intervals;
    apultra_match *match;
+   unsigned char *match1;
    apultra_final_match *best_match;
    apultra_arrival *arrival;
    int flags;

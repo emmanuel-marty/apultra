@@ -186,17 +186,20 @@ int apultra_build_suffix_array(apultra_compressor *pCompressor, const unsigned c
  * @param pCompressor compression context
  * @param nOffset offset to find matches at, in the input window
  * @param pMatches pointer to returned matches
+ * @param pMatch1 pointer to 1-byte length, 4 bit offset match
  * @param nMaxMatches maximum number of matches to return (0 for none)
  *
  * @return number of matches
  */
-int apultra_find_matches_at(apultra_compressor *pCompressor, const int nOffset, apultra_match *pMatches, const int nMaxMatches) {
+int apultra_find_matches_at(apultra_compressor *pCompressor, const int nOffset, apultra_match *pMatches, unsigned char *pMatch1, const int nMaxMatches) {
    unsigned long long *intervals = pCompressor->intervals;
    unsigned long long *pos_data = pCompressor->pos_data;
    unsigned long long ref;
    unsigned long long super_ref;
    unsigned long long match_pos;
    apultra_match *matchptr;
+
+   *pMatch1 = 0;
 
    /**
     * Find matches using intervals
@@ -236,15 +239,19 @@ int apultra_find_matches_at(apultra_compressor *pCompressor, const int nOffset, 
       intervals[ref & POS_MASK] = nOffset | VISITED_FLAG;
       pos_data[match_pos] = (unsigned long long)ref;
 
-      if ((matchptr - pMatches) < nMaxMatches) {
-         int nMatchOffset = (int)(nOffset - match_pos);
+      int nMatchOffset = (int)(nOffset - match_pos);
+      int nMatchLen = (int)(ref >> (LCP_SHIFT + TAG_BITS));
 
+      if ((matchptr - pMatches) < nMaxMatches) {
          if (nMatchOffset <= MAX_OFFSET) {
-            matchptr->length = (int)(ref >> (LCP_SHIFT + TAG_BITS));
-            matchptr->offset = (int)nMatchOffset;
+            matchptr->length = nMatchLen;
+            matchptr->offset = nMatchOffset;
             matchptr++;
          }
       }
+
+      if (nMatchOffset && nMatchOffset < 16 && nMatchLen)
+         *pMatch1 = nMatchOffset;
 
       if (super_ref == 0)
          break;
@@ -264,12 +271,13 @@ int apultra_find_matches_at(apultra_compressor *pCompressor, const int nOffset, 
  */
 void apultra_skip_matches(apultra_compressor *pCompressor, const int nStartOffset, const int nEndOffset) {
    apultra_match match;
+   unsigned char match1;
    int i;
 
    /* Skipping still requires scanning for matches, as this also performs a lazy update of the intervals. However,
     * we don't store the matches. */
    for (i = nStartOffset; i < nEndOffset; i++) {
-      apultra_find_matches_at(pCompressor, i, &match, 0);
+      apultra_find_matches_at(pCompressor, i, &match, &match1, 0);
    }
 }
 
@@ -283,10 +291,11 @@ void apultra_skip_matches(apultra_compressor *pCompressor, const int nStartOffse
  */
 void apultra_find_all_matches(apultra_compressor *pCompressor, const int nMatchesPerOffset, const int nStartOffset, const int nEndOffset) {
    apultra_match *pMatch = pCompressor->match;
+   unsigned char *pMatch1 = pCompressor->match1;
    int i;
 
    for (i = nStartOffset; i < nEndOffset; i++) {
-      int nMatches = apultra_find_matches_at(pCompressor, i, pMatch, nMatchesPerOffset);
+      int nMatches = apultra_find_matches_at(pCompressor, i, pMatch, pMatch1, nMatchesPerOffset);
 
       while (nMatches < nMatchesPerOffset) {
          pMatch[nMatches].length = 0;
@@ -295,5 +304,6 @@ void apultra_find_all_matches(apultra_compressor *pCompressor, const int nMatche
       }
 
       pMatch += nMatchesPerOffset;
+      pMatch1++;
    }
 }
