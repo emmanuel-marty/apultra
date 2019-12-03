@@ -12,7 +12,7 @@ apultra is written in portable C. It is fully open-source under a liberal licens
     original       27923676 (100,00%)
     appack         7370129 (26,39%)
     gzip 1.8       7166179 (25,66%)
-    apultra 1.0.5  6913432 (24,76%)
+    apultra 1.0.6  6910794 (24,75%)
 
 
 Inspirations:
