@@ -61,10 +61,11 @@ int apultra_build_suffix_array(apultra_compressor *pCompressor, const unsigned c
  * @param pMatchDepth pointer to returned match depths
  * @param pMatch1 pointer to 1-byte length, 4 bit offset match
  * @param nMaxMatches maximum number of matches to return (0 for none)
+ * @param nBlockFlags bit 0: 1 for first block, 0 otherwise; bit 1: 1 for last block, 0 otherwise
  *
  * @return number of matches
  */
-int apultra_find_matches_at(apultra_compressor *pCompressor, const int nOffset, apultra_match *pMatches, unsigned short *pMatchDepth, unsigned char *pMatch1, const int nMaxMatches);
+int apultra_find_matches_at(apultra_compressor *pCompressor, const int nOffset, apultra_match *pMatches, unsigned short *pMatchDepth, unsigned char *pMatch1, const int nMaxMatches, const int nBlockFlags);
 
 /**
  * Skip previously compressed bytes
@@ -82,8 +83,9 @@ void apultra_skip_matches(apultra_compressor *pCompressor, const int nStartOffse
  * @param nMatchesPerOffset maximum number of matches to store for each offset
  * @param nStartOffset current offset in input window (typically the number of previously compressed bytes)
  * @param nEndOffset offset to end finding matches at (typically the size of the total input window in bytes
+ * @param nBlockFlags bit 0: 1 for first block, 0 otherwise; bit 1: 1 for last block, 0 otherwise
  */
-void apultra_find_all_matches(apultra_compressor *pCompressor, const int nMatchesPerOffset, const int nStartOffset, const int nEndOffset);
+void apultra_find_all_matches(apultra_compressor *pCompressor, const int nMatchesPerOffset, const int nStartOffset, const int nEndOffset, const int nBlockFlags);
 
 #ifdef __cplusplus
 }

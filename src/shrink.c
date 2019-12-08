@@ -1438,7 +1438,7 @@ static int apultra_compressor_shrink_block(apultra_compressor *pCompressor, cons
       if (nPreviousBlockSize) {
          apultra_skip_matches(pCompressor, 0, nPreviousBlockSize);
       }
-      apultra_find_all_matches(pCompressor, NMATCHES_PER_INDEX, nPreviousBlockSize, nPreviousBlockSize + nInDataSize);
+      apultra_find_all_matches(pCompressor, NMATCHES_PER_INDEX, nPreviousBlockSize, nPreviousBlockSize + nInDataSize, nBlockFlags);
 
       nCompressedSize = apultra_optimize_and_write_block(pCompressor, pInWindow, nPreviousBlockSize, nInDataSize, pOutData, nMaxOutDataSize, nCurBitsOffset, nCurBitMask, nCurFollowsLiteral, nCurRepMatchOffset, nBlockFlags);
    }

@@ -189,10 +189,11 @@ int apultra_build_suffix_array(apultra_compressor *pCompressor, const unsigned c
  * @param pMatchDepth pointer to returned match depths
  * @param pMatch1 pointer to 1-byte length, 4 bit offset match
  * @param nMaxMatches maximum number of matches to return (0 for none)
+ * @param nBlockFlags bit 0: 1 for first block, 0 otherwise; bit 1: 1 for last block, 0 otherwise
  *
  * @return number of matches
  */
-int apultra_find_matches_at(apultra_compressor *pCompressor, const int nOffset, apultra_match *pMatches, unsigned short *pMatchDepth, unsigned char *pMatch1, const int nMaxMatches) {
+int apultra_find_matches_at(apultra_compressor *pCompressor, const int nOffset, apultra_match *pMatches, unsigned short *pMatchDepth, unsigned char *pMatch1, const int nMaxMatches, const int nBlockFlags) {
    unsigned long long *intervals = pCompressor->intervals;
    unsigned long long *pos_data = pCompressor->pos_data;
    unsigned long long ref;
@@ -241,6 +242,33 @@ int apultra_find_matches_at(apultra_compressor *pCompressor, const int nOffset, 
    int nCurDepth = 0;
    unsigned short *cur_depth = NULL;
    
+   if (nOffset > match_pos && (nBlockFlags & 3) == 3) {
+      int nMatchOffset = (int)(nOffset - match_pos);
+      int nMatchLen = (int)(ref >> (LCP_SHIFT + TAG_BITS));
+
+      if ((matchptr - pMatches) < nMaxMatches) {
+         if (nMatchOffset <= MAX_OFFSET) {
+            if (nPrevOffset && nPrevLen > 2 && nMatchOffset == (nPrevOffset - 1) && nMatchLen == (nPrevLen - 1) && cur_depth && nCurDepth < LCP_MAX) {
+               nCurDepth++;
+               *cur_depth = nCurDepth;
+            }
+            else {
+               nCurDepth = 0;
+
+               cur_depth = depthptr;
+               matchptr->length = nMatchLen;
+               matchptr->offset = nMatchOffset;
+               *depthptr = 0;
+               matchptr++;
+               depthptr++;
+            }
+
+            nPrevLen = nMatchLen;
+            nPrevOffset = nMatchOffset;
+         }
+      }
+   }
+
    for (;;) {
       while ((super_ref = pos_data[match_pos]) > ref)
          match_pos = intervals[super_ref & POS_MASK] & EXCL_VISITED_MASK;
@@ -300,7 +328,7 @@ void apultra_skip_matches(apultra_compressor *pCompressor, const int nStartOffse
    /* Skipping still requires scanning for matches, as this also performs a lazy update of the intervals. However,
     * we don't store the matches. */
    for (i = nStartOffset; i < nEndOffset; i++) {
-      apultra_find_matches_at(pCompressor, i, &match, &depth, &match1, 0);
+      apultra_find_matches_at(pCompressor, i, &match, &depth, &match1, 0, 0);
    }
 }
 
@@ -311,15 +339,16 @@ void apultra_skip_matches(apultra_compressor *pCompressor, const int nStartOffse
  * @param nMatchesPerOffset maximum number of matches to store for each offset
  * @param nStartOffset current offset in input window (typically the number of previously compressed bytes)
  * @param nEndOffset offset to end finding matches at (typically the size of the total input window in bytes
+ * @param nBlockFlags bit 0: 1 for first block, 0 otherwise; bit 1: 1 for last block, 0 otherwise
  */
-void apultra_find_all_matches(apultra_compressor *pCompressor, const int nMatchesPerOffset, const int nStartOffset, const int nEndOffset) {
+void apultra_find_all_matches(apultra_compressor *pCompressor, const int nMatchesPerOffset, const int nStartOffset, const int nEndOffset, const int nBlockFlags) {
    apultra_match *pMatch = pCompressor->match;
    unsigned short *pMatchDepth = pCompressor->match_depth;
    unsigned char *pMatch1 = pCompressor->match1;
    int i;
 
    for (i = nStartOffset; i < nEndOffset; i++) {
-      int nMatches = apultra_find_matches_at(pCompressor, i, pMatch, pMatchDepth, pMatch1, nMatchesPerOffset);
+      int nMatches = apultra_find_matches_at(pCompressor, i, pMatch, pMatchDepth, pMatch1, nMatchesPerOffset, nBlockFlags);
 
       while (nMatches < nMatchesPerOffset) {
          pMatch[nMatches].length = 0;
