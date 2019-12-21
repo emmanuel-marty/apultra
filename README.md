@@ -12,8 +12,10 @@ apultra is written in portable C. It is fully open-source under a liberal licens
     original       27923676 (100,00%)
     appack         7370129 (26,39%)
     gzip 1.8       7166179 (25,66%)
-    apultra 1.0.6  6910794 (24,75%)
+    apultra 1.0.8  6910793 (24,75%)
 
+
+The output is fully compatible with the original [aPLib](http://ibsensoftware.com/products_aPLib.html) by Jørgen Ibsen.
 
 Inspirations:
 
