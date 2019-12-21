@@ -95,7 +95,7 @@ int apultra_build_suffix_array(apultra_compressor *pCompressor, const unsigned c
     * and the interval builder below doesn't need it either. */
    intervals[0] &= POS_MASK;
 
-   for (i = 1; i < nInWindowSize - 1; i++) {
+   for (i = 1; i < nInWindowSize; i++) {
       int nIndex = (int)(intervals[i] & POS_MASK);
       int nLen = PLCP[nIndex];
       if (nLen < MIN_MATCH_SIZE)
@@ -107,9 +107,6 @@ int apultra_build_suffix_array(apultra_compressor *pCompressor, const unsigned c
          nTaggedLen = (nLen << TAG_BITS) | (apultra_get_index_tag((unsigned int)nIndex) & ((1 << TAG_BITS) - 1));
       intervals[i] = ((unsigned long long)nIndex) | (((unsigned long long)nTaggedLen) << LCP_SHIFT);
    }
-
-   if (i < nInWindowSize)
-      intervals[i] &= POS_MASK;
 
    /**
     * Build intervals for finding matches
@@ -270,6 +267,37 @@ int apultra_find_matches_at(apultra_compressor *pCompressor, const int nOffset, 
    }
 
    for (;;) {
+      if ((super_ref = pos_data[match_pos]) > ref) {
+         match_pos = intervals[super_ref & POS_MASK] & EXCL_VISITED_MASK;
+
+         if (nOffset > match_pos && (nBlockFlags & 3) == 3) {
+            int nMatchOffset = (int)(nOffset - match_pos);
+            int nMatchLen = (int)(ref >> (LCP_SHIFT + TAG_BITS));
+
+            if ((matchptr - pMatches) < nMaxMatches) {
+               if (nMatchOffset <= MAX_OFFSET && abs(nMatchOffset - nPrevOffset) >= 288) {
+                  if (nPrevOffset && nPrevLen > 2 && nMatchOffset == (nPrevOffset - 1) && nMatchLen == (nPrevLen - 1) && cur_depth && nCurDepth < LCP_MAX) {
+                     nCurDepth++;
+                     *cur_depth = nCurDepth | 0x8000;
+                  }
+                  else {
+                     nCurDepth = 0;
+
+                     cur_depth = depthptr;
+                     matchptr->length = nMatchLen;
+                     matchptr->offset = nMatchOffset;
+                     *depthptr = 0x8000;
+                     matchptr++;
+                     depthptr++;
+                  }
+
+                  nPrevLen = nMatchLen;
+                  nPrevOffset = nMatchOffset;
+               }
+            }
+         }
+      }
+
       while ((super_ref = pos_data[match_pos]) > ref)
          match_pos = intervals[super_ref & POS_MASK] & EXCL_VISITED_MASK;
       intervals[ref & POS_MASK] = nOffset | VISITED_FLAG;
@@ -279,7 +307,7 @@ int apultra_find_matches_at(apultra_compressor *pCompressor, const int nOffset, 
       int nMatchLen = (int)(ref >> (LCP_SHIFT + TAG_BITS));
 
       if ((matchptr - pMatches) < nMaxMatches) {
-         if (nMatchOffset <= MAX_OFFSET) {
+         if (nMatchOffset <= MAX_OFFSET && nMatchOffset != nPrevOffset) {
             if (nPrevOffset && nPrevLen > 2 && nMatchOffset == (nPrevOffset - 1) && nMatchLen == (nPrevLen - 1) && cur_depth && nCurDepth < LCP_MAX) {
                nCurDepth++;
                *cur_depth = nCurDepth;
