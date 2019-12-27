@@ -46,7 +46,7 @@
 #define OPT_STATS          2
 #define OPT_ENHANCED       4
 
-#define TOOL_VERSION "1.0.8"
+#define TOOL_VERSION "1.0.9"
 
 /*---------------------------------------------------------------------------*/
 
