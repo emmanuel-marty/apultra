@@ -44,6 +44,7 @@
 
 #define OPT_VERBOSE        1
 #define OPT_STATS          2
+#define OPT_ENHANCED       4
 
 #define TOOL_VERSION "1.0.8"
 
@@ -105,7 +106,7 @@ static int do_compress(const char *pszInFilename, const char *pszOutFilename, co
    unsigned char *pDecompressedData;
    unsigned char *pCompressedData;
 
-   nFlags = 0;
+   nFlags = (nOptions & OPT_ENHANCED) ? APULTRA_FLAG_ENHANCED : 0;
 
    if (nOptions & OPT_VERBOSE) {
       nStartTime = do_get_time();
@@ -224,7 +225,7 @@ static int do_decompress(const char *pszInFilename, const char *pszOutFilename, 
    unsigned char *pDecompressedData;
    int nFlags;
 
-   nFlags = 0;
+   nFlags = (nOptions & OPT_ENHANCED) ? APULTRA_FLAG_ENHANCED : 0;
 
    /* Read the whole compressed file in memory */
 
@@ -256,7 +257,7 @@ static int do_decompress(const char *pszInFilename, const char *pszOutFilename, 
 
    /* Allocate max decompressed size */
 
-   nMaxDecompressedSize = apultra_get_max_decompressed_size(pCompressedData, nCompressedSize);
+   nMaxDecompressedSize = apultra_get_max_decompressed_size(pCompressedData, nCompressedSize, nFlags);
    if (nMaxDecompressedSize == -1) {
       free(pCompressedData);
       fprintf(stderr, "invalid compressed format for file '%s'\n", pszInFilename);
@@ -321,7 +322,7 @@ static int do_compare(const char *pszInFilename, const char *pszOutFilename, con
    unsigned char *pDecompressedData = NULL;
    int nFlags;
 
-   nFlags = 0;
+   nFlags = (nOptions & OPT_ENHANCED) ? APULTRA_FLAG_ENHANCED : 0;
 
    /* Read the whole compressed file in memory */
 
@@ -384,7 +385,7 @@ static int do_compare(const char *pszInFilename, const char *pszOutFilename, con
 
    /* Allocate max decompressed size */
 
-   nMaxDecompressedSize = apultra_get_max_decompressed_size(pCompressedData, nCompressedSize);
+   nMaxDecompressedSize = apultra_get_max_decompressed_size(pCompressedData, nCompressedSize, nFlags);
    if (nMaxDecompressedSize == -1) {
       free(pOriginalData);
       free(pCompressedData);
@@ -505,7 +506,7 @@ static int do_self_test(const unsigned int nOptions, const int nIsQuickTest) {
    int nFlags;
    int i;
 
-   nFlags = 0;
+   nFlags = (nOptions & OPT_ENHANCED) ? APULTRA_FLAG_ENHANCED : 0;
 
    pGeneratedData = (unsigned char*)malloc(4 * BLOCK_SIZE);
    if (!pGeneratedData) {
@@ -670,7 +671,7 @@ static int do_compr_benchmark(const char *pszInFilename, const char *pszOutFilen
    int nFlags;
    int i;
 
-   nFlags = 0;
+   nFlags = (nOptions & OPT_ENHANCED) ? APULTRA_FLAG_ENHANCED : 0;
 
    if (pszDictionaryFilename) {
       fprintf(stderr, "in-memory benchmarking does not support dictionaries\n");
@@ -798,7 +799,7 @@ static int do_dec_benchmark(const char *pszInFilename, const char *pszOutFilenam
    int nFlags;
    int i;
 
-   nFlags = 0;
+   nFlags = (nOptions & OPT_ENHANCED) ? APULTRA_FLAG_ENHANCED : 0;
 
    if (pszDictionaryFilename) {
       fprintf(stderr, "in-memory benchmarking does not support dictionaries\n");
@@ -835,7 +836,7 @@ static int do_dec_benchmark(const char *pszInFilename, const char *pszOutFilenam
 
    /* Allocate max decompressed size */
 
-   nMaxDecompressedSize = apultra_get_max_decompressed_size(pFileData, nFileSize);
+   nMaxDecompressedSize = apultra_get_max_decompressed_size(pFileData, nFileSize, nFlags);
    if (nMaxDecompressedSize == -1) {
       free(pFileData);
       fprintf(stderr, "invalid compressed format for file '%s'\n", pszInFilename);
@@ -984,6 +985,13 @@ int main(int argc, char **argv) {
          else
             bArgsError = true;
       }
+      else if (!strcmp(argv[i], "-e")) {
+         if ((nOptions & OPT_ENHANCED) == 0) {
+            nOptions |= OPT_ENHANCED;
+         }
+         else
+            bArgsError = true;
+      }
       else if (!strcmp(argv[i], "-stats")) {
          if ((nOptions & OPT_STATS) == 0) {
             nOptions |= OPT_STATS;
@@ -1015,6 +1023,7 @@ int main(int argc, char **argv) {
       fprintf(stderr, "usage: %s [-c] [-d] [-v] [-r] <infile> <outfile>\n", argv[0]);
       fprintf(stderr, "        -c: check resulting stream after compressing\n");
       fprintf(stderr, "        -d: decompress (default: compress)\n");
+      fprintf(stderr, "        -e: use enhanced (incompatible) format for 8-bit micros\n");
       fprintf(stderr, "   -cbench: benchmark in-memory compression\n");
       fprintf(stderr, "   -dbench: benchmark in-memory decompression\n");
       fprintf(stderr, "     -test: run full automated self-tests\n");

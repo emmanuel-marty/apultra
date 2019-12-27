@@ -34,6 +34,7 @@
 #include <string.h>
 #include "format.h"
 #include "expand.h"
+#include "libapultra.h"
 
 #ifdef _MSC_VER
 #define FORCE_INLINE __forceinline
@@ -41,34 +42,58 @@
 #define FORCE_INLINE __attribute__((always_inline))
 #endif /* _MSC_VER */
 
-static inline FORCE_INLINE int apultra_read_bit(const unsigned char **ppInBlock, const unsigned char *pDataEnd, int *nCurBitMask, unsigned char *bits) {
+static inline FORCE_INLINE int apultra_read_bit(const unsigned char **ppInBlock, const unsigned char *pDataEnd, int *nCurBitMask, unsigned char *bits, const int nBitBufferIdx) {
    const unsigned char *pInBlock = *ppInBlock;
    int nBit;
 
-   if ((*nCurBitMask) == 0) {
+   if (nCurBitMask[nBitBufferIdx] == 0) {
       if (pInBlock >= pDataEnd) return -1;
-      (*bits) = *pInBlock++;
-      (*nCurBitMask) = 128;
+      bits[nBitBufferIdx] = *pInBlock++;
+      nCurBitMask[nBitBufferIdx] = 128;
    }
 
-   nBit = ((*bits) & 128) ? 1 : 0;
+   nBit = (bits[nBitBufferIdx] & 128) ? 1 : 0;
 
-   (*bits) <<= 1;
-   (*nCurBitMask) >>= 1;
+   bits[nBitBufferIdx] <<= 1;
+   nCurBitMask[nBitBufferIdx] >>= 1;
 
    *ppInBlock = pInBlock;
    return nBit;
 }
 
-static inline FORCE_INLINE int apultra_read_gamma2(const unsigned char **ppInBlock, const unsigned char *pDataEnd, int *nCurBitMask, unsigned char *bits) {
+static inline FORCE_INLINE int apultra_read_gamma2(const unsigned char **ppInBlock, const unsigned char *pDataEnd, int *nCurBitMask, unsigned char *bits, const int nBitBufferIdx) {
    int bit;
    unsigned int v = 1;
 
-   do {
-      v = (v << 1) + apultra_read_bit(ppInBlock, pDataEnd, nCurBitMask, bits);
-      bit = apultra_read_bit(ppInBlock, pDataEnd, nCurBitMask, bits);
-      if (bit < 0) return bit;
-   } while (bit);
+   if (nBitBufferIdx == 0) {
+      /* Standard aPLib encoding. */
+      do {
+         v = (v << 1) + apultra_read_bit(ppInBlock, pDataEnd, nCurBitMask, bits, nBitBufferIdx);
+         bit = apultra_read_bit(ppInBlock, pDataEnd, nCurBitMask, bits, nBitBufferIdx);
+         if (bit < 0) return bit;
+      } while (bit);
+   }
+   else {
+      /* Enhanced encoding for 8-bit microprocessors ...
+       * 1) Write out values of 256 and higher lo-byte first (so the gamma2 decoder only needs to rotate a byte).
+       * 2) Swap meaning of continue/stop bits (saves a byte on the 6502, with no effect on other platforms).
+       */
+      int l = 0;
+
+      do {
+         if ((l == 0) && (v >= 256)) {
+            l = v;
+            v = 1;
+         }
+         v = (v << 1) + apultra_read_bit(ppInBlock, pDataEnd, nCurBitMask, bits, nBitBufferIdx);
+         bit = apultra_read_bit(ppInBlock, pDataEnd, nCurBitMask, bits, nBitBufferIdx);
+         if (bit < 0) return bit;
+      } while (bit == 0);
+
+      if (l != 0) {
+         v = (v << 8) + (l & 255);
+      }
+   }
 
    return v;
 }
@@ -78,16 +103,20 @@ static inline FORCE_INLINE int apultra_read_gamma2(const unsigned char **ppInBlo
  *
  * @param pInputData compressed data
  * @param nInputSize compressed size in bytes
+ * @param nFlags compression flags (a bitmask of APULTRA_FLAG_xxx, or 0)
  *
  * @return maximum decompressed size
  */
-size_t apultra_get_max_decompressed_size(const unsigned char *pInputData, size_t nInputSize) {
+size_t apultra_get_max_decompressed_size(const unsigned char *pInputData, size_t nInputSize, const unsigned int nFlags) {
    const unsigned char *pInputDataEnd = pInputData + nInputSize;
-   int nCurBitMask = 0;
-   unsigned char bits;
+   int nCurBitMask[3] = { 0, 0, 0 };
+   unsigned char bits[3] = { 0, 0, 0 };
    int nMatchOffset = 1;
    int nFollowsLiteral = 1;
    size_t nDecompressedSize = 0;
+   int nSingleBitBufferIdx = 0;
+   int nGammaBitBufferIdx = (nFlags & APULTRA_FLAG_ENHANCED) ? 1 : 0;
+   int nNibblesBitBufferIdx = (nFlags & APULTRA_FLAG_ENHANCED) ? 2 : 0;
 
    if (pInputData >= pInputDataEnd)
       return -1;
@@ -97,7 +126,7 @@ size_t apultra_get_max_decompressed_size(const unsigned char *pInputData, size_t
    while (1) {
       unsigned int nResult;
 
-      nResult = apultra_read_bit(&pInputData, pInputDataEnd, &nCurBitMask, &bits);
+      nResult = apultra_read_bit(&pInputData, pInputDataEnd, nCurBitMask, bits, nSingleBitBufferIdx);
       if (nResult < 0) return -1;
 
       if (!nResult) {
@@ -112,7 +141,7 @@ size_t apultra_get_max_decompressed_size(const unsigned char *pInputData, size_t
          }
       }
       else {
-         nResult = apultra_read_bit(&pInputData, pInputDataEnd, &nCurBitMask, &bits);
+         nResult = apultra_read_bit(&pInputData, pInputDataEnd, nCurBitMask, bits, nSingleBitBufferIdx);
          if (nResult < 0) return -1;
 
          if (nResult == 0) {
@@ -121,7 +150,7 @@ size_t apultra_get_max_decompressed_size(const unsigned char *pInputData, size_t
             unsigned int nIsRepMatch = 0;
 
             /* '10': 8+n bits offset */
-            unsigned int nMatchOffsetHi = apultra_read_gamma2(&pInputData, pInputDataEnd, &nCurBitMask, &bits);
+            unsigned int nMatchOffsetHi = apultra_read_gamma2(&pInputData, pInputDataEnd, nCurBitMask, bits, nGammaBitBufferIdx);
             if (nFollowsLiteral == 0 || nMatchOffsetHi != 2) {
                if (nFollowsLiteral)
                   nMatchOffset = (nMatchOffsetHi - 3) << 8;
@@ -138,7 +167,7 @@ size_t apultra_get_max_decompressed_size(const unsigned char *pInputData, size_t
             }
 
             nFollowsLiteral = 0;
-            nMatchLen = apultra_read_gamma2(&pInputData, pInputDataEnd, &nCurBitMask, &bits);
+            nMatchLen = apultra_read_gamma2(&pInputData, pInputDataEnd, nCurBitMask, bits, nGammaBitBufferIdx);
 
             if (!nIsRepMatch) {
                if (nMatchOffset >= MINMATCH3_OFFSET)
@@ -151,7 +180,7 @@ size_t apultra_get_max_decompressed_size(const unsigned char *pInputData, size_t
             nDecompressedSize += nMatchLen;
          }
          else {
-            nResult = apultra_read_bit(&pInputData, pInputDataEnd, &nCurBitMask, &bits);
+            nResult = apultra_read_bit(&pInputData, pInputDataEnd, nCurBitMask, bits, nSingleBitBufferIdx);
             if (nResult < 0) return -1;
 
             if (nResult == 0) {
@@ -176,19 +205,19 @@ size_t apultra_get_max_decompressed_size(const unsigned char *pInputData, size_t
                unsigned int nShortMatchOffset;
 
                /* '111': 4 bit offset */
-               nResult = apultra_read_bit(&pInputData, pInputDataEnd, &nCurBitMask, &bits);
+               nResult = apultra_read_bit(&pInputData, pInputDataEnd, nCurBitMask, bits, nNibblesBitBufferIdx);
                if (nResult < 0) return -1;
                nShortMatchOffset = nResult << 3;
 
-               nResult = apultra_read_bit(&pInputData, pInputDataEnd, &nCurBitMask, &bits);
+               nResult = apultra_read_bit(&pInputData, pInputDataEnd, nCurBitMask, bits, nNibblesBitBufferIdx);
                if (nResult < 0) return -1;
                nShortMatchOffset |= nResult << 2;
 
-               nResult = apultra_read_bit(&pInputData, pInputDataEnd, &nCurBitMask, &bits);
+               nResult = apultra_read_bit(&pInputData, pInputDataEnd, nCurBitMask, bits, nNibblesBitBufferIdx);
                if (nResult < 0) return -1;
                nShortMatchOffset |= nResult << 1;
 
-               nResult = apultra_read_bit(&pInputData, pInputDataEnd, &nCurBitMask, &bits);
+               nResult = apultra_read_bit(&pInputData, pInputDataEnd, nCurBitMask, bits, nNibblesBitBufferIdx);
                if (nResult < 0) return -1;
                nShortMatchOffset |= nResult << 0;
 
@@ -209,7 +238,7 @@ size_t apultra_get_max_decompressed_size(const unsigned char *pInputData, size_t
  * @param pOutBuffer buffer for decompressed data
  * @param nInputSize compressed size in bytes
  * @param nMaxOutBufferSize maximum capacity of decompression buffer
- * @param nFlags decompression flags (set to 0)
+ * @param nFlags compression flags (a bitmask of APULTRA_FLAG_xxx, or 0)
  *
  * @return actual decompressed size, or -1 for error
  */
@@ -218,10 +247,13 @@ size_t apultra_decompress(const unsigned char *pInputData, unsigned char *pOutDa
    unsigned char *pCurOutData = pOutData;
    const unsigned char *pOutDataEnd = pCurOutData + nMaxOutBufferSize;
    const unsigned char *pOutDataFastEnd = pOutDataEnd - 20;
-   int nCurBitMask = 0;
-   unsigned char bits;
+   int nCurBitMask[3] = { 0, 0, 0 };
+   unsigned char bits[3] = { 0, 0, 0 };
    int nMatchOffset = 1;
    int nFollowsLiteral = 1;
+   int nSingleBitBufferIdx = 0;
+   int nGammaBitBufferIdx = (nFlags & APULTRA_FLAG_ENHANCED) ? 1 : 0;
+   int nNibblesBitBufferIdx = (nFlags & APULTRA_FLAG_ENHANCED) ? 2 : 0;
 
    if (pInputData >= pInputDataEnd && pCurOutData < pOutDataEnd)
       return -1;
@@ -230,7 +262,7 @@ size_t apultra_decompress(const unsigned char *pInputData, unsigned char *pOutDa
    while (1) {
       unsigned int nResult;
 
-      nResult = apultra_read_bit(&pInputData, pInputDataEnd, &nCurBitMask, &bits);
+      nResult = apultra_read_bit(&pInputData, pInputDataEnd, nCurBitMask, bits, nSingleBitBufferIdx);
       if (nResult < 0) return -1;
 
       if (!nResult) {
@@ -244,7 +276,7 @@ size_t apultra_decompress(const unsigned char *pInputData, unsigned char *pOutDa
          }
       }
       else {
-         nResult = apultra_read_bit(&pInputData, pInputDataEnd, &nCurBitMask, &bits);
+         nResult = apultra_read_bit(&pInputData, pInputDataEnd, nCurBitMask, bits, nSingleBitBufferIdx);
          if (nResult < 0) return -1;
 
          if (nResult == 0) {
@@ -253,7 +285,7 @@ size_t apultra_decompress(const unsigned char *pInputData, unsigned char *pOutDa
             unsigned int nIsRepMatch = 0;
 
             /* '10': 8+n bits offset */
-            unsigned int nMatchOffsetHi = apultra_read_gamma2(&pInputData, pInputDataEnd, &nCurBitMask, &bits);
+            unsigned int nMatchOffsetHi = apultra_read_gamma2(&pInputData, pInputDataEnd, nCurBitMask, bits, nGammaBitBufferIdx);
             if (nFollowsLiteral == 0 || nMatchOffsetHi != 2) {
                if (nFollowsLiteral)
                   nMatchOffset = (nMatchOffsetHi - 3) << 8;
@@ -272,7 +304,7 @@ size_t apultra_decompress(const unsigned char *pInputData, unsigned char *pOutDa
             nFollowsLiteral = 0;
             const unsigned char *pSrc = pCurOutData - nMatchOffset;
             if (pSrc >= pOutData) {
-               nMatchLen = apultra_read_gamma2(&pInputData, pInputDataEnd, &nCurBitMask, &bits);
+               nMatchLen = apultra_read_gamma2(&pInputData, pInputDataEnd, nCurBitMask, bits, nGammaBitBufferIdx);
 
                if (!nIsRepMatch) {
                   if (nMatchOffset >= MINMATCH3_OFFSET)
@@ -322,7 +354,7 @@ size_t apultra_decompress(const unsigned char *pInputData, unsigned char *pOutDa
             }
          }
          else {
-            nResult = apultra_read_bit(&pInputData, pInputDataEnd, &nCurBitMask, &bits);
+            nResult = apultra_read_bit(&pInputData, pInputDataEnd, nCurBitMask, bits, nSingleBitBufferIdx);
             if (nResult < 0) return -1;
 
             if (nResult == 0) {
@@ -368,19 +400,19 @@ size_t apultra_decompress(const unsigned char *pInputData, unsigned char *pOutDa
                unsigned int nShortMatchOffset;
 
                /* '111': 4 bit offset */
-               nResult = apultra_read_bit(&pInputData, pInputDataEnd, &nCurBitMask, &bits);
+               nResult = apultra_read_bit(&pInputData, pInputDataEnd, nCurBitMask, bits, nNibblesBitBufferIdx);
                if (nResult < 0) return -1;
                nShortMatchOffset = nResult << 3;
 
-               nResult = apultra_read_bit(&pInputData, pInputDataEnd, &nCurBitMask, &bits);
+               nResult = apultra_read_bit(&pInputData, pInputDataEnd, nCurBitMask, bits, nNibblesBitBufferIdx);
                if (nResult < 0) return -1;
                nShortMatchOffset |= nResult << 2;
 
-               nResult = apultra_read_bit(&pInputData, pInputDataEnd, &nCurBitMask, &bits);
+               nResult = apultra_read_bit(&pInputData, pInputDataEnd, nCurBitMask, bits, nNibblesBitBufferIdx);
                if (nResult < 0) return -1;
                nShortMatchOffset |= nResult << 1;
 
-               nResult = apultra_read_bit(&pInputData, pInputDataEnd, &nCurBitMask, &bits);
+               nResult = apultra_read_bit(&pInputData, pInputDataEnd, nCurBitMask, bits, nNibblesBitBufferIdx);
                if (nResult < 0) return -1;
                nShortMatchOffset |= nResult << 0;
 
