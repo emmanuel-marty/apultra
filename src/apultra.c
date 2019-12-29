@@ -97,7 +97,7 @@ static void compression_progress(long long nOriginalSize, long long nCompressedS
    }
 }
 
-static int do_compress(const char *pszInFilename, const char *pszOutFilename, const char *pszDictionaryFilename, const unsigned int nOptions) {
+static int do_compress(const char *pszInFilename, const char *pszOutFilename, const char *pszDictionaryFilename, const unsigned int nOptions, const unsigned int nMaxWindowSize) {
    long long nStartTime = 0LL, nEndTime = 0LL;
    size_t nOriginalSize = 0L, nCompressedSize = 0L, nMaxCompressedSize;
    int nSafeDist = 0;
@@ -153,7 +153,7 @@ static int do_compress(const char *pszInFilename, const char *pszOutFilename, co
 
    memset(pCompressedData, 0, nMaxCompressedSize);
 
-   nCompressedSize = apultra_compress(pDecompressedData, pCompressedData, nOriginalSize, nMaxCompressedSize, nFlags, compression_progress, &stats);
+   nCompressedSize = apultra_compress(pDecompressedData, pCompressedData, nOriginalSize, nMaxCompressedSize, nFlags, nMaxWindowSize, compression_progress, &stats);
 
    if ((nOptions & OPT_VERBOSE)) {
       nEndTime = do_get_time();
@@ -495,7 +495,7 @@ static void xor_data(unsigned char *pBuffer, size_t nBufferSize, unsigned int nS
    }
 }
 
-static int do_self_test(const unsigned int nOptions, const int nIsQuickTest) {
+static int do_self_test(const unsigned int nOptions, const unsigned int nMaxWindowSize, const int nIsQuickTest) {
    unsigned char *pGeneratedData;
    unsigned char *pCompressedData;
    unsigned char *pTmpCompressedData;
@@ -555,7 +555,7 @@ static int do_self_test(const unsigned int nOptions, const int nIsQuickTest) {
    /* Test compressing with a too small buffer to do anything, expect to fail cleanly */
    for (i = 0; i < 12; i++) {
       generate_compressible_data(pGeneratedData, i, nSeed, 256, 0.5f);
-      apultra_compress(pGeneratedData, pCompressedData, i, i, nFlags, NULL, NULL);
+      apultra_compress(pGeneratedData, pCompressedData, i, i, nFlags, nMaxWindowSize, NULL, NULL);
    }
 
    size_t nDataSizeStep = 128;
@@ -578,7 +578,7 @@ static int do_self_test(const unsigned int nOptions, const int nIsQuickTest) {
 
             /* Try to compress it, expected to succeed */
             size_t nActualCompressedSize = apultra_compress(pGeneratedData, pCompressedData, nGeneratedDataSize, apultra_get_max_compressed_size(nGeneratedDataSize),
-               nFlags, NULL, NULL);
+               nFlags, nMaxWindowSize, NULL, NULL);
             if (nActualCompressedSize == -1 || nActualCompressedSize < (1 + 1 + 1 /* footer */)) {
                free(pTmpDecompressedData);
                pTmpDecompressedData = NULL;
@@ -664,7 +664,7 @@ static int do_self_test(const unsigned int nOptions, const int nIsQuickTest) {
 
 /*---------------------------------------------------------------------------*/
 
-static int do_compr_benchmark(const char *pszInFilename, const char *pszOutFilename, const char *pszDictionaryFilename, const unsigned int nOptions) {
+static int do_compr_benchmark(const char *pszInFilename, const char *pszOutFilename, const char *pszDictionaryFilename, const unsigned int nOptions, const unsigned int nMaxWindowSize) {
    size_t nFileSize, nMaxCompressedSize;
    unsigned char *pFileData;
    unsigned char *pCompressedData;
@@ -733,7 +733,7 @@ static int do_compr_benchmark(const char *pszInFilename, const char *pszOutFilen
       memset(pCompressedData + 1024 + nRightGuardPos, nGuard, 1024);
 
       long long t0 = do_get_time();
-      nActualCompressedSize = apultra_compress(pFileData, pCompressedData + 1024, nFileSize, nRightGuardPos, nFlags, NULL, NULL);
+      nActualCompressedSize = apultra_compress(pFileData, pCompressedData + 1024, nFileSize, nRightGuardPos, nFlags, nMaxWindowSize, NULL, NULL);
       long long t1 = do_get_time();
       if (nActualCompressedSize == -1) {
          free(pCompressedData);
@@ -906,6 +906,7 @@ int main(int argc, char **argv) {
    bool bFormatVersionDefined = false;
    char cCommand = 'z';
    unsigned int nOptions = 0;
+   unsigned int nMaxWindowSize = 0;
 
    for (i = 1; i < argc; i++) {
       if (!strcmp(argv[i], "-d")) {
@@ -992,6 +993,34 @@ int main(int argc, char **argv) {
          else
             bArgsError = true;
       }
+      else if (!strcmp(argv[i], "-w")) {
+         if (!nMaxWindowSize && (i + 1) < argc) {
+            char *pEnd = NULL;
+            nMaxWindowSize = (int)strtol(argv[i + 1], &pEnd, 10);
+            if (pEnd && pEnd != argv[i + 1] && (nMaxWindowSize >= 16 && nMaxWindowSize <= 0x200000)) {
+               i++;
+            }
+            else {
+               bArgsError = true;
+            }
+         }
+         else
+            bArgsError = true;
+      }
+      else if (!strncmp(argv[i], "-w", 2)) {
+         if (!nMaxWindowSize) {
+            char *pEnd = NULL;
+            nMaxWindowSize = (int)strtol(argv[i] + 2, &pEnd, 10);
+            if (pEnd && pEnd != (argv[i] + 2) && (nMaxWindowSize >= 16 && nMaxWindowSize <= 0x200000)) {
+               bFormatVersionDefined = true;
+            }
+            else {
+               bArgsError = true;
+            }
+         }
+         else
+            bArgsError = true;
+      }
       else if (!strcmp(argv[i], "-stats")) {
          if ((nOptions & OPT_STATS) == 0) {
             nOptions |= OPT_STATS;
@@ -1012,10 +1041,10 @@ int main(int argc, char **argv) {
    }
 
    if (!bArgsError && cCommand == 't') {
-      return do_self_test(nOptions, 0);
+      return do_self_test(nOptions, nMaxWindowSize, 0);
    }
    else if (!bArgsError && cCommand == 'T') {
-      return do_self_test(nOptions, 1);
+      return do_self_test(nOptions, nMaxWindowSize, 1);
    }
 
    if (bArgsError || !pszInFilename || !pszOutFilename) {
@@ -1024,6 +1053,7 @@ int main(int argc, char **argv) {
       fprintf(stderr, "        -c: check resulting stream after compressing\n");
       fprintf(stderr, "        -d: decompress (default: compress)\n");
       fprintf(stderr, "        -e: use enhanced (incompatible) format for 8-bit micros\n");
+      fprintf(stderr, " -w <size>: maximum window size, in bytes (16..2097152), defaults to maximum\n");
       fprintf(stderr, "   -cbench: benchmark in-memory compression\n");
       fprintf(stderr, "   -dbench: benchmark in-memory decompression\n");
       fprintf(stderr, "     -test: run full automated self-tests\n");
@@ -1036,7 +1066,7 @@ int main(int argc, char **argv) {
    do_init_time();
 
    if (cCommand == 'z') {
-      int nResult = do_compress(pszInFilename, pszOutFilename, pszDictionaryFilename, nOptions);
+      int nResult = do_compress(pszInFilename, pszOutFilename, pszDictionaryFilename, nOptions, nMaxWindowSize);
       if (nResult == 0 && bVerifyCompression) {
          return do_compare(pszOutFilename, pszInFilename, pszDictionaryFilename, nOptions);
       } else {
@@ -1047,7 +1077,7 @@ int main(int argc, char **argv) {
       return do_decompress(pszInFilename, pszOutFilename, pszDictionaryFilename, nOptions);
    }
    else if (cCommand == 'B') {
-      return do_compr_benchmark(pszInFilename, pszOutFilename, pszDictionaryFilename, nOptions);
+      return do_compr_benchmark(pszInFilename, pszOutFilename, pszDictionaryFilename, nOptions, nMaxWindowSize);
    }
    else if (cCommand == 'b') {
       return do_dec_benchmark(pszInFilename, pszOutFilename, pszDictionaryFilename, nOptions);

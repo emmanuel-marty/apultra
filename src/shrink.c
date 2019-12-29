@@ -1525,17 +1525,19 @@ size_t apultra_get_max_compressed_size(size_t nInputSize) {
  * @param nFlags compression flags (a bitmask of APULTRA_FLAG_xxx, or 0)
  * @param progress progress function, called after compressing each block, or NULL for none
  * @param pStats pointer to compression stats that are filled if this function is successful, or NULL
+ * @param nMaxWindowSize maximum window size to use (0 for default)
  *
  * @return actual compressed size, or -1 for error
  */
 size_t apultra_compress(const unsigned char *pInputData, unsigned char *pOutBuffer, size_t nInputSize, size_t nMaxOutBufferSize,
-      const unsigned int nFlags, void(*progress)(long long nOriginalSize, long long nCompressedSize), apultra_stats *pStats) {
+      const unsigned int nFlags, size_t nMaxWindowSize, void(*progress)(long long nOriginalSize, long long nCompressedSize), apultra_stats *pStats) {
    apultra_compressor compressor;
    size_t nOriginalSize = 0;
    size_t nCompressedSize = 0L;
    int nResult;
    int nError = 0;
-   const int nBlockSize = (nInputSize < BLOCK_SIZE) ? ((nInputSize < 1024) ? 1024 : (int)nInputSize) : BLOCK_SIZE;
+   const int nDefaultBlockSize = (nInputSize < BLOCK_SIZE) ? ((nInputSize < 1024) ? 1024 : (int)nInputSize) : BLOCK_SIZE;
+   const int nBlockSize = nMaxWindowSize ? ((nDefaultBlockSize < nMaxWindowSize / 2) ? nDefaultBlockSize : (int)nMaxWindowSize / 2) : nDefaultBlockSize;
    const int nMaxOutBlockSize = (int)apultra_get_max_compressed_size(nBlockSize);
 
    nResult = apultra_compressor_init(&compressor, nBlockSize, nBlockSize * 2, nFlags);
