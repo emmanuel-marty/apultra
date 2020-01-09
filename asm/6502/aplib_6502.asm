@@ -37,7 +37,7 @@
                 ; breaks compatibility with standard aPLib encoders.
                 ;
 
-APL_ENHANCED    =       0
+;APL_ENHANCED   =       1
 
                 ;
                 ; Assume that we're decompessing from a large multi-bank
@@ -45,13 +45,13 @@ APL_ENHANCED    =       0
                 ; paged in when a page-boundary is crossed.
                 ;
 
-APL_FROM_BANK   =       0
+;APL_FROM_BANK  =       1
 
                 ;
                 ; Macro to increment the source pointer to the next page.
                 ;
 
-                !if     APL_FROM_BANK {
+                !ifdef  APL_FROM_BANK {
                         !macro  APL_INC_PAGE {
                         jsr     .next_page
                         }
@@ -81,7 +81,7 @@ APL_FROM_BANK   =       0
 ; Data usage is last 12 bytes of zero-page.
 ;
 
-                !if     APL_ENHANCED {
+                !ifdef  APL_ENHANCED {
 apl_nibflg      =       $F4                     ; 1 byte.
 apl_nibble      =       $F5                     ; 1 byte.
 apl_egamma      =       $F6                     ; 1 byte.
@@ -119,7 +119,7 @@ apl_decompress: ldy     #0                      ; Initialize source index.
                 lda     #$80                    ; Initialize an empty
                 sta     <apl_bitbuf             ; bit-buffer.
 
-                !if     APL_ENHANCED {
+                !ifdef  APL_ENHANCED {
                 sta     <apl_egamma             ; Bit-buffer for gamma pairs.
                 sty     <apl_nibflg             ; Reset the flag.
                 }
@@ -154,7 +154,7 @@ apl_decompress: ldy     #0                      ; Initialize source index.
 
                 ; 1 1 1 dddd - Copy 1 byte within 15 bytes (or zero).
 
-                !if     APL_ENHANCED {
+                !ifdef  APL_ENHANCED {
 
 .copy_short:    lsr     <apl_nibflg             ; Is there a nibble waiting?
                 lda     <apl_nibble             ; Extract the lo-nibble.
@@ -213,7 +213,7 @@ apl_decompress: ldy     #0                      ; Initialize source index.
                 ; Subroutines for byte & bit handling.
                 ;
 
-                !if     APL_ENHANCED {
+                !ifdef  APL_ENHANCED {
 
 .get_gamma:     lda     #1                      ; Get a gamma-coded value.
 .gamma_loop:    asl     <apl_egamma
@@ -262,7 +262,7 @@ apl_decompress: ldy     #0                      ; Initialize source index.
                 ; 1 0 <offset> <length> - gamma-coded LZSS pair.
                 ;
 
-                !if     APL_ENHANCED {
+                !ifdef  APL_ENHANCED {
 
 .copy_large:    jsr     .get_gamma              ; Bits 8..15 of offset (min 2).
 
@@ -314,7 +314,7 @@ apl_decompress: ldy     #0                      ; Initialize source index.
 .lt256:         ldy     <apl_offset + 0         ; If offset <    128, length += 2.
                 bmi     .do_match
 
-                !if     APL_ENHANCED {
+                !ifdef  APL_ENHANCED {
                 } else {
                 sec                             ; aPLib gamma returns with CC.
                 }
