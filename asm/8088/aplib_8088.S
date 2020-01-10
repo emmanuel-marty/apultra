@@ -46,8 +46,9 @@ apl_decompress:
         xor     dx,dx           ; invalidate rep offset
 
 .literal:
-        mov     bh,02H          ; set follows_literal(bh) to 2
         movsb                   ; read and write literal byte
+.next_command_after_literal:
+        mov     bp,02H          ; set follows_literal(bp) to 2
 
 .next_command:
         apl_get_bit             ; read 'literal or match' bit
@@ -60,7 +61,7 @@ apl_decompress:
 
                                 ; 10: 8+n bits match
         call    .get_gamma2     ; read gamma2-coded high offset bits
-        sub     cl,bh           ; high offset bits == 2 when follows_literal == 2 ?
+        sub     cx,bp           ; high offset bits == 2 when follows_literal == 2 ?
                                 ; (a gamma2 value is always >= 2, so substracting follows_literal when it
                                 ; is == 1 will never result in zero)
         jne     .not_repmatch   ; if not, not a rep-match
@@ -69,7 +70,7 @@ apl_decompress:
         jmp     short .got_len  ; go copy
 
 .not_repmatch:
-        dec     cl              ; we need to substract 2 to the high offset byte when follows_literal == 1 and
+        dec     cx              ; we need to substract 2 to the high offset byte when follows_literal == 1 and
                                 ; substract 3 when follows_literal == 2, so fix it here
         mov     dh,cl           ; transfer high offset bits to dh
         lodsb                   ; read low offset byte
@@ -90,10 +91,8 @@ apl_decompress:
         ; copy cx bytes from match offset dx
 
 .got_len:
-        mov     bh,01H          ; set follows_literal to 1
-
         push    ds              ; save ds:si (current pointer to compressed data)
-        xchg    si,ax
+        mov     bp,si
 
         push    es
         pop     ds
@@ -101,8 +100,10 @@ apl_decompress:
         sub     si,dx
         rep     movsb           ; copy matched bytes
 
-        xchg    si,ax           ; restore ds:si
+        mov     si,bp           ; restore ds:si
         pop     ds
+
+        mov     bp,01H          ; set follows_literal to 1
         jmp     short .next_command
 
         ; read gamma2-coded value into cx. trashes al
@@ -117,9 +118,17 @@ apl_decompress:
         jc      .gamma2_loop    ; loop until a zero continuation bit is read
         ret
 
+        ; 4 bits offset / write a zero
+
+.write_zero:
+        mov     al,cl
+        stosb                   ; short offset 0: write a 0
+        jmp     short .next_command_after_literal
+
         ; handle 7 bits offset + 1 bit len or 4 bits offset / 1 byte copy
 
 .other:
+        xor     cx,cx
         apl_get_bit             ; read '7+1 match or short literal' bit
         jc      .short_literal  ; 111: 4 bit offset for 1-byte copy
 
@@ -127,8 +136,7 @@ apl_decompress:
                                 
         lodsb                   ; read offset + length
 
-        xor     cx,cx           ; prepare cx for length below
-        inc     cx
+        inc     cx              ; prepare cx for length below
         shr     al,1            ; shift len bit into carry, and offset in place
         je      .done           ; if zero offset: EOD
         adc     cx,cx           ; len in cx: 1*2 + carry bit = 2 or 3
@@ -140,9 +148,6 @@ apl_decompress:
         ; 4 bits offset / 1 byte copy
 
 .short_literal:
-        mov     bh,02H          ; set follows_literal(bh) to 2
-
-        xor     cx,cx           ; read 4-bit offset
         apl_get_bit
         adc     cl,cl
         apl_get_bit
@@ -154,17 +159,11 @@ apl_decompress:
         jz      .write_zero
 
                                 ; short offset 1-15
-        push    di              ; preserve di
         sub     di,cx           ; point to destination in es:di - offset in cx
         mov     al,[es:di]
-        pop     di              ; restore di
+        add     di,cx           ; restore di
         stosb                   ; copy matched byte
-        jmp     .next_command
-
-.write_zero:
-        mov     al,cl
-        stosb                   ; short offset 0: write a 0
-        jmp     .next_command
+        jmp     .next_command_after_literal
 
 .done:
         pop     ax              ; retrieve the original decompression offset
