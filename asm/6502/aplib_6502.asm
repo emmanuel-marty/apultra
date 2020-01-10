@@ -217,23 +217,16 @@ apl_decompress: ldy     #0                      ; Initialize source index.
 
 .get_gamma:     lda     #1                      ; Get a gamma-coded value.
 .gamma_loop:    asl     <apl_egamma
-                bne     .rotate_gamma
+                bne     .skip5
                 pha
                 +APL_GET_SRC                    ; Reload an empty bit-buffer
                 rol                             ; from the compressed source.
                 sta     <apl_egamma
                 pla
-.rotate_gamma:  rol
-                bcs     .big_gamma              ; Got 8 bits, now read rest.
+.skip5:         rol
+                rol     <apl_length + 1
                 asl     <apl_egamma
-                bcc     .gamma_loop
-                rts                             ; Always returns CS.
-
-.big_gamma:     pha                             ; Read remaining bits of length
-                tya                             ; larger than 255. This is very
-                jsr     .rotate_gamma           ; rare, so it saves cycles on
-                tax                             ; the 6502 to do it this way.
-                pla
+                bcs     .gamma_loop
 
 .finished:      rts                             ; All decompressed!
 
@@ -262,27 +255,6 @@ apl_decompress: ldy     #0                      ; Initialize source index.
                 ; 1 0 <offset> <length> - gamma-coded LZSS pair.
                 ;
 
-                !ifdef  APL_ENHANCED {
-
-.copy_large:    jsr     .get_gamma              ; Bits 8..15 of offset (min 2).
-
-                cpx     #1                      ; CC if LWM==0, CS if LWM==1.
-                ldx     #0                      ; Clear hi-byte of length.
-                sbc     #2                      ; -3 if LWM==0, -2 if LWM==1.
-                bcs     .normal_pair            ; CC if LWM==0 && offset==2.
-
-                jsr     .get_gamma              ; Get length (A=lo-byte & CS).
-                bcs     .do_match               ; Use previous Offset.
-
-.normal_pair:   sta     <apl_offset + 1         ; Save bits 8..15 of offset.
-
-                +APL_GET_SRC
-                sta     <apl_offset + 0         ; Save bits 0...7 of offset.
-
-                jsr     .get_gamma              ; Get length (A=lo-byte & CS).
-
-                } else {
-
 .copy_large:    jsr     .get_gamma              ; Bits 8..15 of offset (min 2).
                 sty     <apl_length + 1         ; Clear hi-byte of length.
 
@@ -302,8 +274,6 @@ apl_decompress: ldy     #0                      ; Initialize source index.
                 jsr     .get_gamma              ; Get length (A=lo-byte & CC).
                 ldx     <apl_length + 1
 
-                }
-
                 ldy     <apl_offset + 1         ; If offset <    256.
                 beq     .lt256
                 cpy     #$7D                    ; If offset >= 32000, length += 2.
@@ -314,10 +284,7 @@ apl_decompress: ldy     #0                      ; Initialize source index.
 .lt256:         ldy     <apl_offset + 0         ; If offset <    128, length += 2.
                 bmi     .do_match
 
-                !ifdef  APL_ENHANCED {
-                } else {
                 sec                             ; aPLib gamma returns with CC.
-                }
 
 .match_plus2:   adc     #1                      ; CS, so ADC #2.
                 bcs     .match_plus256

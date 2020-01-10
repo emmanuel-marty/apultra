@@ -42,7 +42,23 @@
 apl_decompress:
         push    di              ; remember decompression offset
         cld                     ; make string operations go forward
+
+        ; === register map ===
+        ; al: scratch register for reading the next input byte
+        ; ah: standard: unused  enhanced: nybble queue (for 4-bit offsets)
+        ; bl: bit queue
+        ; bh: standard: unused  enhanced: dibit queue (for gamma2 codes)
+        ; cx: scratch register for reading gamma2 codes and storing copy length
+        ; dx: match offset (and rep-offset)
+        ; si: input (compressed data) pointer
+        ; di: output (decompressed data) pointer
+        ; bp: follows_literal
+
         mov     bl,080H         ; clear bit queue(bl) and set high bit to move into carry
+        %ifdef  APL_ENHANCED
+        mov     bh,bl           ; initialize dibit queue as well
+        mov     ah,bl           ; initialize nybble queue as well
+        %endif
         xor     dx,dx           ; invalidate rep offset
 
 .literal:
@@ -111,11 +127,29 @@ apl_decompress:
 .get_gamma2:
         xor     cx,cx           ; initialize to 1 so that value will start at 2
         inc     cx              ; when shifted left in the adc below
+
+        %ifdef  APL_ENHANCED
+
+.gamma2_loop:
+        add     bh,bh           ; shift dibit queue, and high bit into carry
+        jnz     .gamma2_gotdata ; queue not empty, bits remain
+        lodsb                   ; read 8 new bits
+        mov     bh,al           ; move bits into queue
+        adc     bh,bh           ; shift dibit queue, and high bit into carry
+.gamma2_gotdata:
+        adc     cx,cx           ; shift into cx
+        add     bh,bh           ; shift dibit queue, and high bit into carry
+        jc      .gamma2_loop    ; loop until a zero continuation bit is read
+
+        %else
+
 .gamma2_loop:
         apl_get_bit             ; read data bit
         adc     cx,cx           ; shift into cx
         apl_get_bit             ; read continuation bit
         jc      .gamma2_loop    ; loop until a zero continuation bit is read
+
+        %endif
         ret
 
         ; 4 bits offset / write a zero
@@ -148,7 +182,28 @@ apl_decompress:
         ; 4 bits offset / 1 byte copy
 
 .short_literal:
-        apl_get_bit
+        %ifdef  APL_ENHANCED
+
+        add     ah,ah           ; shift nybble queue, and high bit into carry
+        jnz     .got_nybble     ; queue not empty, bits remain
+        lodsb                   ; read 8 new bits
+        mov     ah,al           ; move bits into queue
+        adc     ah,ah           ; shift nybble queue, and high bit into carry
+.got_nybble:
+        adc     cl,cl
+
+        add     ah,ah           ; read bit from nybble queue
+        adc     cl,cl
+
+        add     ah,ah           ; read bit from nybble queue
+        adc     cl,cl
+
+        add     ah,ah           ; read bit from nybble queue
+        adc     cl,cl
+
+        %else
+
+        apl_get_bit             ; read 4 offset bits
         adc     cl,cl
         apl_get_bit
         adc     cl,cl
@@ -156,6 +211,9 @@ apl_decompress:
         adc     cl,cl
         apl_get_bit
         adc     cl,cl
+
+        %endif
+
         jz      .write_zero
 
                                 ; short offset 1-15
