@@ -65,35 +65,11 @@ static inline FORCE_INLINE int apultra_read_gamma2(const unsigned char **ppInBlo
    int bit;
    unsigned int v = 1;
 
-   if (nBitBufferIdx == 0) {
-      /* Standard aPLib encoding. */
-      do {
-         v = (v << 1) + apultra_read_bit(ppInBlock, pDataEnd, nCurBitMask, bits, nBitBufferIdx);
-         bit = apultra_read_bit(ppInBlock, pDataEnd, nCurBitMask, bits, nBitBufferIdx);
-         if (bit < 0) return bit;
-      } while (bit);
-   }
-   else {
-      /* Enhanced encoding for 8-bit microprocessors ...
-       * 1) Write out values of 256 and higher lo-byte first (so the gamma2 decoder only needs to rotate a byte).
-       * 2) Swap meaning of continue/stop bits (saves a byte on the 6502, with no effect on other platforms).
-       */
-      int l = 0;
-
-      do {
-         if ((l == 0) && (v >= 256)) {
-            l = v;
-            v = 1;
-         }
-         v = (v << 1) + apultra_read_bit(ppInBlock, pDataEnd, nCurBitMask, bits, nBitBufferIdx);
-         bit = apultra_read_bit(ppInBlock, pDataEnd, nCurBitMask, bits, nBitBufferIdx);
-         if (bit < 0) return bit;
-      } while (bit == 0);
-
-      if (l != 0) {
-         v = (v << 8) + (l & 255);
-      }
-   }
+   do {
+      v = (v << 1) + apultra_read_bit(ppInBlock, pDataEnd, nCurBitMask, bits, nBitBufferIdx);
+      bit = apultra_read_bit(ppInBlock, pDataEnd, nCurBitMask, bits, nBitBufferIdx);
+      if (bit < 0) return bit;
+   } while (bit);
 
    return v;
 }

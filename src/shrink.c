@@ -138,43 +138,12 @@ static int apultra_write_gamma2_value(unsigned char *pOutData, int nOutOffset, c
    int msb = 30;
    while ((nValue >> msb--) == 0);
 
-   if (nBitBufferIdx == 0) {
-      /* Standard aPLib encoding. */
-      while (msb >= 0) {
-         int bit = (nValue >> msb) & 1;
+   while (msb >= 0) {
+      int bit = (nValue >> msb) & 1;
    
-         nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, bit ? 1 : 0, nCurBitsOffset, nCurBitMask, nBitBufferIdx);
-         msb--;
-         nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, msb >= 0 ? 1 : 0, nCurBitsOffset, nCurBitMask, nBitBufferIdx);
-      }
-   }
-   else {
-      /* Enhanced encoding for 8-bit microprocessors ...
-       * 1) Write out values of 256 and higher lo-byte first (so the gamma2 decoder only needs to rotate a byte).
-       * 2) Swap meaning of continue/stop bits (saves a byte on the 6502, with no effect on other platforms).
-       */
-      if (msb >= 8) {
-         int btm = 7;
-         /* Write lo-byte of nValue first. */
-         while (btm >= 0) {
-            int bit = (nValue >> btm) & 1;
-
-            nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, bit ? 1 : 0, nCurBitsOffset, nCurBitMask, nBitBufferIdx);
-            btm--;
-            nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, 0, nCurBitsOffset, nCurBitMask, nBitBufferIdx);
-         }
-         /* Then write the remaining bits. */
-         nValue >>= 8;
-         msb     -= 8;
-      }
-
-      while (msb >= 0) {
-         int bit = (nValue >> msb) & 1;
-
-         nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, bit ? 1 : 0, nCurBitsOffset, nCurBitMask, nBitBufferIdx);
-         msb--;
-         nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, msb >= 0 ? 0 : 1, nCurBitsOffset, nCurBitMask, nBitBufferIdx);
-      }
+      nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, bit ? 1 : 0, nCurBitsOffset, nCurBitMask, nBitBufferIdx);
+      msb--;
+      nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, msb >= 0 ? 1 : 0, nCurBitsOffset, nCurBitMask, nBitBufferIdx);
    }
 
    return nOutOffset;
