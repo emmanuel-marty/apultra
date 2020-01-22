@@ -72,16 +72,17 @@ typedef struct _apultra_final_match {
 /** Forward arrival slot */
 typedef struct {
    int cost;
+
    unsigned int from_pos:21;
-   int from_slot:8;
+   int from_slot:6;
    unsigned int follows_literal:1;
+   unsigned int short_offset:4;
 
    unsigned int rep_offset;
-   unsigned int rep_pos;
-   int score;
-
-   unsigned int match_offset:21;
+   unsigned int rep_pos:21;
    unsigned int match_len:11;
+
+   int score;
 } apultra_arrival;
 
 /** Compression statistics */
