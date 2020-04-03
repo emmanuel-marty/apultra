@@ -93,6 +93,8 @@ typedef struct _apultra_stats {
    int num_variable_matches;
    int num_rep_matches;
 
+   int safe_dist;
+
    int min_offset;
    int max_offset;
    long long total_offsets;

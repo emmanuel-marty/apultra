@@ -99,7 +99,6 @@ static void compression_progress(long long nOriginalSize, long long nCompressedS
 static int do_compress(const char *pszInFilename, const char *pszOutFilename, const char *pszDictionaryFilename, const unsigned int nOptions, const unsigned int nMaxWindowSize) {
    long long nStartTime = 0LL, nEndTime = 0LL;
    size_t nOriginalSize = 0L, nCompressedSize = 0L, nMaxCompressedSize;
-   int nSafeDist = 0;
    int nFlags = 0;
    apultra_stats stats;
    unsigned char *pDecompressedData;
@@ -209,6 +208,7 @@ static int do_compress(const char *pszInFilename, const char *pszOutFilename, co
       else {
          fprintf(stdout, "RLE2 lens: none\n");
       }
+      fprintf(stdout, "Safe distance: %d (0x%X)\n", stats.safe_dist, stats.safe_dist);
    }
    return 0;
 }

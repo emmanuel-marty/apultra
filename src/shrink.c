@@ -1226,6 +1226,10 @@ static int apultra_write_block(apultra_compressor *pCompressor, apultra_final_ma
          i++;
          *nFollowsLiteral = 1;
       }
+
+      int nCurSafeDist = (i - nStartOffset) - nOutOffset;
+      if (nCurSafeDist >= 0 && pCompressor->stats.safe_dist < nCurSafeDist)
+         pCompressor->stats.safe_dist = nCurSafeDist;
    }
 
    if (nBlockFlags & 2) {
@@ -1240,6 +1244,10 @@ static int apultra_write_block(apultra_compressor *pCompressor, apultra_final_ma
          return -1;
       pOutData[nOutOffset++] = 0x00;   /* Offset: EOD */
       pCompressor->stats.commands_divisor++;
+
+      int nCurSafeDist = (i - nStartOffset) - nOutOffset;
+      if (nCurSafeDist >= 0 && pCompressor->stats.safe_dist < nCurSafeDist)
+         pCompressor->stats.safe_dist = nCurSafeDist;
    }
 
    *nCurRepMatchOffset = nRepMatchOffset;
