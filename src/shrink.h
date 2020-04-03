@@ -131,9 +131,6 @@ typedef struct _apultra_compressor {
    apultra_stats stats;
 } apultra_compressor;
 
-/** Compression flags */
-#define APULTRA_FLAG_ENHANCED   1  /**< Use enhanced (incompatible) format */
-
 /**
  * Get maximum compressed size of input(source) data
  *
@@ -150,7 +147,7 @@ size_t apultra_get_max_compressed_size(size_t nInputSize);
  * @param pOutBuffer buffer for compressed data
  * @param nInputSize input(source) size in bytes
  * @param nMaxOutBufferSize maximum capacity of compression buffer
- * @param nFlags compression flags (a bitmask of APULTRA_FLAG_xxx, or 0)
+ * @param nFlags compression flags (set to 0)
  * @param progress progress function, called after compressing each block, or NULL for none
  * @param pStats pointer to compression stats that are filled if this function is successful, or NULL
  * @param nMaxWindowSize maximum window size to use (0 for default)

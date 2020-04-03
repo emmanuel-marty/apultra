@@ -71,29 +71,28 @@ static char _gamma2_size[256] = {
  * @param nBit value of bit to write (0 or 1)
  * @param nCurBitsOffset write index into output buffer, of current byte being filled with bits
  * @param nCurBitMask bit shifter
- * @param nBitBufferIdx index of bit buffer to write to
  *
  * @return updated write index into output buffer, or -1 in case of an error
  */
-static int apultra_write_bit(unsigned char *pOutData, int nOutOffset, const int nMaxOutDataSize, const int nBit, int *nCurBitsOffset, int *nCurBitMask, const int nBitBufferIdx) {
+static int apultra_write_bit(unsigned char *pOutData, int nOutOffset, const int nMaxOutDataSize, const int nBit, int *nCurBitsOffset, int *nCurBitMask) {
    if (nOutOffset < 0) return -1;
 
-   if (nCurBitsOffset[nBitBufferIdx] == INT_MIN) {
+   if ((*nCurBitsOffset) == INT_MIN) {
       /* Allocate a new byte in the stream to pack bits in */
       if (nOutOffset >= nMaxOutDataSize) return -1;
-      nCurBitsOffset[nBitBufferIdx] = nOutOffset;
-      nCurBitMask[nBitBufferIdx] = 1 << 7;
+      (*nCurBitsOffset) = nOutOffset;
+      (*nCurBitMask) = 1 << 7;
       pOutData[nOutOffset++] = 0;
    }
 
    if (nBit) {
-      pOutData[nCurBitsOffset[nBitBufferIdx]] |= nCurBitMask[nBitBufferIdx];
+      pOutData[(*nCurBitsOffset)] |= (*nCurBitMask);
    }
 
-   nCurBitMask[nBitBufferIdx] >>= 1;
-   if (nCurBitMask[nBitBufferIdx] == 0) {
+   (*nCurBitMask) >>= 1;
+   if ((*nCurBitMask) == 0) {
       /* Current byte is full */
-      nCurBitsOffset[nBitBufferIdx] = INT_MIN;
+      (*nCurBitsOffset) = INT_MIN;
    }
 
    return nOutOffset;
@@ -130,20 +129,19 @@ static int apultra_get_gamma2_size(int nValue) {
  * @param nValue value of write (2..n)
  * @param nCurBitsOffset write index into output buffer, of current byte being filled with bits
  * @param nCurBitMask bit shifter
- * @param nBitBufferIdx index of bit buffer to write to
  *
  * @return updated write index into output buffer, or -1 in case of an error
  */
-static int apultra_write_gamma2_value(unsigned char *pOutData, int nOutOffset, const int nMaxOutDataSize, int nValue, int *nCurBitsOffset, int *nCurBitMask, const int nBitBufferIdx) {
+static int apultra_write_gamma2_value(unsigned char *pOutData, int nOutOffset, const int nMaxOutDataSize, int nValue, int *nCurBitsOffset, int *nCurBitMask) {
    int msb = 30;
    while ((nValue >> msb--) == 0);
 
    while (msb >= 0) {
       int bit = (nValue >> msb) & 1;
    
-      nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, bit ? 1 : 0, nCurBitsOffset, nCurBitMask, nBitBufferIdx);
+      nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, bit ? 1 : 0, nCurBitsOffset, nCurBitMask);
       msb--;
-      nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, msb >= 0 ? 1 : 0, nCurBitsOffset, nCurBitMask, nBitBufferIdx);
+      nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, msb >= 0 ? 1 : 0, nCurBitsOffset, nCurBitMask);
    }
 
    return nOutOffset;
@@ -233,22 +231,21 @@ static inline int apultra_get_match_varlen_size(int nLength, const int nMatchOff
  * @param nLength match length
  * @param nMatchOffset match offset
  * @param nIsRepMatch non-zero if this is a rep-match, zero if it is a regular match
- * @param nBitBufferIdx index of bit buffer to write to
  *
  * @return updated write index into output buffer, or -1 in case of an error
  */
-static inline int apultra_write_match_varlen(unsigned char *pOutData, int nOutOffset, const int nMaxOutDataSize, int *nCurBitsOffset, int *nCurBitMask, const int nBitBufferIdx, int nLength, const int nMatchOffset, const int nIsRepMatch) {
+static inline int apultra_write_match_varlen(unsigned char *pOutData, int nOutOffset, const int nMaxOutDataSize, int *nCurBitsOffset, int *nCurBitMask, int nLength, const int nMatchOffset, const int nIsRepMatch) {
    if (nLength < 2)
       return -1;
 
    if (nMatchOffset < 128 && !nIsRepMatch)
       nLength -= 2;
    if (nMatchOffset < MINMATCH3_OFFSET || nIsRepMatch)
-      return apultra_write_gamma2_value(pOutData, nOutOffset, nMaxOutDataSize, nLength, nCurBitsOffset, nCurBitMask, nBitBufferIdx);
+      return apultra_write_gamma2_value(pOutData, nOutOffset, nMaxOutDataSize, nLength, nCurBitsOffset, nCurBitMask);
    else if (nMatchOffset < MINMATCH4_OFFSET)
-      return apultra_write_gamma2_value(pOutData, nOutOffset, nMaxOutDataSize, nLength - 1, nCurBitsOffset, nCurBitMask, nBitBufferIdx);
+      return apultra_write_gamma2_value(pOutData, nOutOffset, nMaxOutDataSize, nLength - 1, nCurBitsOffset, nCurBitMask);
    else
-      return apultra_write_gamma2_value(pOutData, nOutOffset, nMaxOutDataSize, nLength - 2, nCurBitsOffset, nCurBitMask, nBitBufferIdx);
+      return apultra_write_gamma2_value(pOutData, nOutOffset, nMaxOutDataSize, nLength - 2, nCurBitsOffset, nCurBitMask);
 }
 
 /**
@@ -1061,9 +1058,6 @@ static int apultra_write_block(apultra_compressor *pCompressor, apultra_final_ma
    int i, j;
    int nInFirstLiteralOffset = 0;
    int nRepMatchOffset = *nCurRepMatchOffset;
-   int nSingleBitBufferIdx = 0;
-   int nGammaBitBufferIdx = (pCompressor->flags & APULTRA_FLAG_ENHANCED) ? 1 : 0;
-   int nNibblesBitBufferIdx = (pCompressor->flags & APULTRA_FLAG_ENHANCED) ? 2 : 0;
 
    if (nBlockFlags & 1) {
       if (nOutOffset < 0 || nOutOffset >= nMaxOutDataSize)
@@ -1117,9 +1111,9 @@ static int apultra_write_block(apultra_compressor *pCompressor, apultra_final_ma
          int nActualTokenOffsetMode = nTokenOffsetMode;
          if (nActualTokenOffsetMode == 3)
             nActualTokenOffsetMode = 0;
-         nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, 1 /* match */, nCurBitsOffset, nCurBitMask, nSingleBitBufferIdx);
+         nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, 1 /* match */, nCurBitsOffset, nCurBitMask);
          for (j = _token_size[nActualTokenOffsetMode] - 1; j >= 0; j--)
-            nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, (_token_code[nActualTokenOffsetMode] & (1 << j)) ? 1 : 0, nCurBitsOffset, nCurBitMask, nSingleBitBufferIdx);
+            nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, (_token_code[nActualTokenOffsetMode] & (1 << j)) ? 1 : 0, nCurBitsOffset, nCurBitMask);
 
          int nEmitMatchLength = 0;
 
@@ -1129,9 +1123,9 @@ static int apultra_write_block(apultra_compressor *pCompressor, apultra_final_ma
             if (nOutOffset < 0 || nOutOffset >= nMaxOutDataSize)
                return -1;
             if (*nFollowsLiteral)
-               nOutOffset = apultra_write_gamma2_value(pOutData, nOutOffset, nMaxOutDataSize, (nMatchOffset >> 8) + 3, nCurBitsOffset, nCurBitMask, nGammaBitBufferIdx);
+               nOutOffset = apultra_write_gamma2_value(pOutData, nOutOffset, nMaxOutDataSize, (nMatchOffset >> 8) + 3, nCurBitsOffset, nCurBitMask);
             else
-               nOutOffset = apultra_write_gamma2_value(pOutData, nOutOffset, nMaxOutDataSize, (nMatchOffset >> 8) + 2, nCurBitsOffset, nCurBitMask, nGammaBitBufferIdx);
+               nOutOffset = apultra_write_gamma2_value(pOutData, nOutOffset, nMaxOutDataSize, (nMatchOffset >> 8) + 2, nCurBitsOffset, nCurBitMask);
             pOutData[nOutOffset++] = nMatchOffset & 0xff;
 
             if (nMatchOffset < 128 && nMatchLen <= 3) {
@@ -1160,10 +1154,10 @@ static int apultra_write_block(apultra_compressor *pCompressor, apultra_final_ma
          else if (nTokenOffsetMode == 2) {
             /* 4 bits offset */
 
-            nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, (nMatchOffset & 0x08) ? 1 : 0, nCurBitsOffset, nCurBitMask, nNibblesBitBufferIdx);
-            nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, (nMatchOffset & 0x04) ? 1 : 0, nCurBitsOffset, nCurBitMask, nNibblesBitBufferIdx);
-            nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, (nMatchOffset & 0x02) ? 1 : 0, nCurBitsOffset, nCurBitMask, nNibblesBitBufferIdx);
-            nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, (nMatchOffset & 0x01) ? 1 : 0, nCurBitsOffset, nCurBitMask, nNibblesBitBufferIdx);
+            nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, (nMatchOffset & 0x08) ? 1 : 0, nCurBitsOffset, nCurBitMask);
+            nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, (nMatchOffset & 0x04) ? 1 : 0, nCurBitsOffset, nCurBitMask);
+            nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, (nMatchOffset & 0x02) ? 1 : 0, nCurBitsOffset, nCurBitMask);
+            nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, (nMatchOffset & 0x01) ? 1 : 0, nCurBitsOffset, nCurBitMask);
             if (nOutOffset < 0) return -1;
 
             *nFollowsLiteral = 1;
@@ -1172,7 +1166,7 @@ static int apultra_write_block(apultra_compressor *pCompressor, apultra_final_ma
          }
          else {
             /* rep match */
-            nOutOffset = apultra_write_gamma2_value(pOutData, nOutOffset, nMaxOutDataSize, 2, nCurBitsOffset, nCurBitMask, nGammaBitBufferIdx);
+            nOutOffset = apultra_write_gamma2_value(pOutData, nOutOffset, nMaxOutDataSize, 2, nCurBitsOffset, nCurBitMask);
 
             nEmitMatchLength = 1;
             *nFollowsLiteral = 0;
@@ -1182,7 +1176,7 @@ static int apultra_write_block(apultra_compressor *pCompressor, apultra_final_ma
 
          if (nEmitMatchLength) {
             /* The match length isn't encoded in the command, emit elias gamma value */
-            nOutOffset = apultra_write_match_varlen(pOutData, nOutOffset, nMaxOutDataSize, nCurBitsOffset, nCurBitMask, nGammaBitBufferIdx, nMatchLen, nMatchOffset, (nTokenOffsetMode == 3) ? 1 : 0);
+            nOutOffset = apultra_write_match_varlen(pOutData, nOutOffset, nMaxOutDataSize, nCurBitsOffset, nCurBitMask, nMatchLen, nMatchOffset, (nTokenOffsetMode == 3) ? 1 : 0);
             if (nOutOffset < 0) return -1;
          }
 
@@ -1221,7 +1215,7 @@ static int apultra_write_block(apultra_compressor *pCompressor, apultra_final_ma
          pCompressor->stats.commands_divisor++;
       }
       else {
-         nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, 0 /* literal */, nCurBitsOffset, nCurBitMask, nSingleBitBufferIdx);
+         nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, 0 /* literal */, nCurBitsOffset, nCurBitMask);
 
          if (nOutOffset < 0 || nOutOffset >= nMaxOutDataSize)
             return -1;
@@ -1235,12 +1229,12 @@ static int apultra_write_block(apultra_compressor *pCompressor, apultra_final_ma
    }
 
    if (nBlockFlags & 2) {
-      nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, 1 /* match */, nCurBitsOffset, nCurBitMask, nSingleBitBufferIdx);
+      nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, 1 /* match */, nCurBitsOffset, nCurBitMask);
 
       /* 8 bits offset */
 
       for (j = TOKEN_SIZE_7BIT_MATCH - 1; j >= 0; j--)
-         nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, (_token_code[1] & (1 << j)) ? 1 : 0, nCurBitsOffset, nCurBitMask, nSingleBitBufferIdx);
+         nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, (_token_code[1] & (1 << j)) ? 1 : 0, nCurBitsOffset, nCurBitMask);
 
       if (nOutOffset < 0 || nOutOffset >= nMaxOutDataSize)
          return -1;
@@ -1272,7 +1266,6 @@ static int apultra_write_raw_uncompressed_block_v3(apultra_compressor *pCompress
    int nNumLiterals = nEndOffset - nStartOffset;
    int j;
    int nInOffset = nStartOffset;
-   int nSingleBitBufferIdx = 0;
 
    int nCommandSize = apultra_get_literals_varlen_size(nNumLiterals) + (nNumLiterals << 3) + TOKEN_PREFIX_SIZE + TOKEN_SIZE_7BIT_MATCH /* token */ + 8 /* match offset */;
    if ((nOutOffset + ((nCommandSize + 7) >> 3)) > nMaxOutDataSize)
@@ -1282,17 +1275,17 @@ static int apultra_write_raw_uncompressed_block_v3(apultra_compressor *pCompress
    *nFollowsLiteral = 1;
 
    for (j = 0; j < nNumLiterals; j++) {
-      nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, 0 /* literal */, nCurBitsOffset, nCurBitMask, nSingleBitBufferIdx);
+      nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, 0 /* literal */, nCurBitsOffset, nCurBitMask);
       pOutData[nOutOffset++] = pInWindow[nInOffset + j];
    }
 
    nNumLiterals = 0;
 
-   nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, 1 /* match */, nCurBitsOffset, nCurBitMask, nSingleBitBufferIdx);
+   nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, 1 /* match */, nCurBitsOffset, nCurBitMask);
 
    /* 8 bits offset */
    for (j = TOKEN_SIZE_7BIT_MATCH - 1; j >= 0; j--)
-      nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, (_token_code[1] & (1 << j)) ? 1 : 0, nCurBitsOffset, nCurBitMask, nSingleBitBufferIdx);
+      nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, (_token_code[1] & (1 << j)) ? 1 : 0, nCurBitsOffset, nCurBitMask);
 
    if (nOutOffset < 0 || nOutOffset >= nMaxOutDataSize)
       return -1;
@@ -1522,7 +1515,7 @@ size_t apultra_get_max_compressed_size(size_t nInputSize) {
  * @param pOutBuffer buffer for compressed data
  * @param nInputSize input(source) size in bytes
  * @param nMaxOutBufferSize maximum capacity of compression buffer
- * @param nFlags compression flags (a bitmask of APULTRA_FLAG_xxx, or 0)
+ * @param nFlags compression flags (set to 0)
  * @param progress progress function, called after compressing each block, or NULL for none
  * @param pStats pointer to compression stats that are filled if this function is successful, or NULL
  * @param nMaxWindowSize maximum window size to use (0 for default)
@@ -1547,7 +1540,7 @@ size_t apultra_compress(const unsigned char *pInputData, unsigned char *pOutBuff
 
    int nPreviousBlockSize = 0;
    int nNumBlocks = 0;
-   int nCurBitsOffset[3] = { INT_MIN, INT_MIN, INT_MIN }, nCurBitMask[3] = { 0, 0, 0 }, nCurFollowsLiteral = 0;
+   int nCurBitsOffset = INT_MIN, nCurBitMask = 0, nCurFollowsLiteral = 0;
    int nBlockFlags = 1;
    int nCurRepMatchOffset = 0;
 
@@ -1568,7 +1561,7 @@ size_t apultra_compress(const unsigned char *pInputData, unsigned char *pOutBuff
          if ((nOriginalSize + nInDataSize) >= nInputSize)
             nBlockFlags |= 2;
          nOutDataSize = apultra_compressor_shrink_block(&compressor, pInputData + nOriginalSize - nPreviousBlockSize, nPreviousBlockSize, nInDataSize, pOutBuffer + nCompressedSize, nOutDataEnd,
-            nCurBitsOffset, nCurBitMask, &nCurFollowsLiteral, &nCurRepMatchOffset, nBlockFlags);
+            &nCurBitsOffset, &nCurBitMask, &nCurFollowsLiteral, &nCurRepMatchOffset, nBlockFlags);
          nBlockFlags &= (~1);
 
          if (nOutDataSize >= 0) {
@@ -1577,12 +1570,8 @@ size_t apultra_compress(const unsigned char *pInputData, unsigned char *pOutBuff
             if (!nError) {
                nOriginalSize += nInDataSize;
                nCompressedSize += nOutDataSize;
-               if (nCurBitsOffset[0] != INT_MIN)
-                  nCurBitsOffset[0] -= nOutDataSize;
-               if (nCurBitsOffset[1] != INT_MIN)
-                  nCurBitsOffset[1] -= nOutDataSize;
-               if (nCurBitsOffset[2] != INT_MIN)
-                  nCurBitsOffset[2] -= nOutDataSize;
+               if (nCurBitsOffset != INT_MIN)
+                  nCurBitsOffset -= nOutDataSize;
             }
          }
          else {
