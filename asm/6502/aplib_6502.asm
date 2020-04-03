@@ -25,40 +25,15 @@
 ; ***************************************************************************
 ; ***************************************************************************
 ;
-; Decompression Options & Macros
+; Decompression Macros
 ;
-
-                ;
-                ; Use the enhanced format from Emmanuel Marty's APULTRA?
-                ;
-                ; The enhancements speed up decompression on an 8-bit CPU.
-                ;
-                ; This gives an 11% improvement in decompresison speed, but
-                ; breaks compatibility with standard aPLib encoders.
-                ;
-
-;APL_ENHANCED   =       1
-
-                ;
-                ; Assume that we're decompessing from a large multi-bank
-                ; compressed data file, and that the next bank may need to
-                ; paged in when a page-boundary is crossed.
-                ;
-
-;APL_FROM_BANK  =       1
 
                 ;
                 ; Macro to increment the source pointer to the next page.
                 ;
 
-                !ifdef  APL_FROM_BANK {
-                        !macro  APL_INC_PAGE {
-                        jsr     .next_page
-                        }
-                } else {
-                        !macro  APL_INC_PAGE {
+                !macro  APL_INC_PAGE {
                         inc     <apl_srcptr + 1
-                        }
                 }
 
                 ;
@@ -81,12 +56,6 @@
 ; Data usage is last 12 bytes of zero-page.
 ;
 
-                !ifdef  APL_ENHANCED {
-apl_nibflg      =       $F4                     ; 1 byte.
-apl_nibble      =       $F5                     ; 1 byte.
-apl_egamma      =       $F6                     ; 1 byte.
-                }
-
 apl_bitbuf      =       $F7                     ; 1 byte.
 apl_offset      =       $F8                     ; 1 word.
 apl_winptr      =       $FA                     ; 1 word.
@@ -104,9 +73,6 @@ apl_length      =       apl_winptr
 ; Args: apl_dstptr = ptr to output buffer
 ; Uses: lots!
 ;
-; If compiled with APL_FROM_BANK, then apl_srcptr should be within the bank
-; window range.
-;
 ; As an optimization, the code to handle window offsets > 64768 bytes has
 ; been removed, since these don't occur with a 16-bit address range.
 ;
@@ -118,11 +84,6 @@ apl_decompress: ldy     #0                      ; Initialize source index.
 
                 lda     #$80                    ; Initialize an empty
                 sta     <apl_bitbuf             ; bit-buffer.
-
-                !ifdef  APL_ENHANCED {
-                sta     <apl_egamma             ; Bit-buffer for gamma pairs.
-                sty     <apl_nibflg             ; Reset the flag.
-                }
 
                 ;
                 ; 0 bbbbbbbb - One byte from compressed data, i.e. a "literal".
@@ -154,25 +115,6 @@ apl_decompress: ldy     #0                      ; Initialize source index.
 
                 ; 1 1 1 dddd - Copy 1 byte within 15 bytes (or zero).
 
-                !ifdef  APL_ENHANCED {
-
-.copy_short:    lsr     <apl_nibflg             ; Is there a nibble waiting?
-                lda     <apl_nibble             ; Extract the lo-nibble.
-                bcs     .skip4
-
-                inc     <apl_nibflg             ; Reset the flag.
-                +APL_GET_SRC
-                sta     <apl_nibble             ; Preserve for next time.
-                lsr                             ; Extract the hi-nibble.
-                lsr
-                lsr
-                lsr
-
-.skip4:         and     #$0F                    ; Current nibble.
-                beq     .write_byte             ; Offset=0 means write zero.
-
-                } else {
-
 .copy_short:    lda     #$10
 .nibble_loop:   asl     <apl_bitbuf
                 bne     .skip4
@@ -182,8 +124,6 @@ apl_decompress: ldy     #0                      ; Initialize source index.
 .skip4:         rol
                 bcc     .nibble_loop
                 beq     .write_byte             ; Offset=0 means write zero.
-
-                }
 
                 eor     #$FF                    ; Read the byte directly from
                 tay                             ; the destination window.
@@ -213,25 +153,6 @@ apl_decompress: ldy     #0                      ; Initialize source index.
                 ; Subroutines for byte & bit handling.
                 ;
 
-                !ifdef  APL_ENHANCED {
-
-.get_gamma:     lda     #1                      ; Get a gamma-coded value.
-.gamma_loop:    asl     <apl_egamma
-                bne     .skip5
-                pha
-                +APL_GET_SRC                    ; Reload an empty bit-buffer
-                rol                             ; from the compressed source.
-                sta     <apl_egamma
-                pla
-.skip5:         rol
-                rol     <apl_length + 1
-                asl     <apl_egamma
-                bcs     .gamma_loop
-
-.finished:      rts                             ; All decompressed!
-
-                } else {
-
 .get_gamma:     lda     #1                      ; Get a gamma-coded value.
 .gamma_loop:    asl     <apl_bitbuf
                 bne     .skip5
@@ -248,8 +169,6 @@ apl_decompress: ldy     #0                      ; Initialize source index.
 .skip6:         bcs     .gamma_loop
 
 .finished:      rts                             ; All decompressed!
-
-                }
 
                 ;
                 ; 1 0 <offset> <length> - gamma-coded LZSS pair.
