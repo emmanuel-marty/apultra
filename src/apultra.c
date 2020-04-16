@@ -45,7 +45,7 @@
 #define OPT_VERBOSE        1
 #define OPT_STATS          2
 
-#define TOOL_VERSION "1.0.9"
+#define TOOL_VERSION "1.1.0"
 
 /*---------------------------------------------------------------------------*/
 
