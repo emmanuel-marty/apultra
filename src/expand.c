@@ -215,9 +215,6 @@ size_t apultra_decompress(const unsigned char *pInputData, unsigned char *pOutDa
    unsigned char bits = 0;
    int nMatchOffset = 1;
    int nFollowsLiteral = 2;
-   int nSingleBitBufferIdx = 0;
-   int nGammaBitBufferIdx = 0;
-   int nNibblesBitBufferIdx = 0;
 
    if (pInputData >= pInputDataEnd && pCurOutData < pOutDataEnd)
       return -1;

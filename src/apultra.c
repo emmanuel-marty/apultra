@@ -889,7 +889,6 @@ int main(int argc, char **argv) {
    bool bArgsError = false;
    bool bCommandDefined = false;
    bool bVerifyCompression = false;
-   bool bMinMatchDefined = false;
    bool bFormatVersionDefined = false;
    char cCommand = 'z';
    unsigned int nOptions = 0;

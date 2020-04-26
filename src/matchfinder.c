@@ -64,7 +64,7 @@ int apultra_build_suffix_array(apultra_compressor *pCompressor, const unsigned c
       return 100;
    }
 
-   int i;
+   int i, r;
 
    for (i = nInWindowSize - 1; i >= 0; i--) {
       intervals[i] = suffixArray[i];
@@ -124,7 +124,7 @@ int apultra_build_suffix_array(apultra_compressor *pCompressor, const unsigned c
    intervals[0] = 0;
    next_interval_idx = 1;
 
-   for (int r = 1; r < nInWindowSize; r++) {
+   for (r = 1; r < nInWindowSize; r++) {
       const unsigned long long next_pos = SA_and_LCP[r] & POS_MASK;
       const unsigned long long next_lcp = SA_and_LCP[r] & LCP_MASK;
       const unsigned long long top_lcp = *top & LCP_MASK;

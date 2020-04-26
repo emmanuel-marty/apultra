@@ -332,8 +332,6 @@ static void apultra_insert_forward_match(apultra_compressor *pCompressor, const 
  */
 static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsigned char *pInWindow, const int nStartOffset, const int nEndOffset, const int nInsertForwardReps, const int *nCurRepMatchOffset, const int nBlockFlags, const int nMatchesPerArrival) {
    apultra_arrival *arrival = pCompressor->arrival - (nStartOffset * nMatchesPerArrival);
-   const int nHalfMatchesPerArrival = nMatchesPerArrival / 2;
-   const int nQuarterMatchesPerArrival = nMatchesPerArrival / 4;
    int i, j, n;
 
    if ((nEndOffset - nStartOffset) > pCompressor->block_size) return;
@@ -386,7 +384,9 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
             }
 
             if (!exists) {
-               for (int nn = n;
+               int nn;
+
+               for (nn = n;
                   nn < nMatchesPerArrival && pDestSlots[nn].cost == nCodingChoiceCost;
                   nn++) {
                   if (pDestSlots[nn].rep_offset == cur_arrival[j].rep_offset) {
@@ -563,7 +563,9 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
                               }
 
                               if (!exists) {
-                                 for (int nn = n;
+                                 int nn;
+
+                                 for (nn = n;
                                     nn < nMatchesPerArrival && pDestSlots[nn].cost == nCodingChoiceCost;
                                     nn++) {
                                     if (pDestSlots[nn].rep_offset == nMatchOffset) {
@@ -636,7 +638,9 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
                            }
 
                            if (!exists) {
-                              for (int nn = n;
+                              int nn;
+
+                              for (nn = n;
                                  nn < nMatchesPerArrival && pDestSlots[nn].cost == nRepCodingChoiceCost;
                                  nn++) {
                                  if (pDestSlots[nn].rep_offset == nRepOffset) {
@@ -700,9 +704,7 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
    
    apultra_arrival *end_arrival = &arrival[(i * nMatchesPerArrival) + 0];
    apultra_final_match *pBestMatch = pCompressor->best_match - nStartOffset;
-   
-   int nEndCost = end_arrival->cost;
-   
+      
    while (end_arrival->from_slot > 0 && end_arrival->from_pos >= 0 && (int)end_arrival->from_pos < nEndOffset) {
       pBestMatch[end_arrival->from_pos].length = end_arrival->match_len;
       if (end_arrival->match_len >= 2)
@@ -812,7 +814,7 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
                               ((pBestMatch[nNextIndex].offset < MINMATCH3_OFFSET || nMaxLen >= 3) &&
                                (pBestMatch[nNextIndex].offset < MINMATCH4_OFFSET || nMaxLen >= 4))) {
 
-                              int nPartialSizeBefore, nPartialSizeAfter;
+                              int nPartialSizeBefore, nPartialSizeAfter, j;
 
                               nPartialSizeBefore = apultra_get_offset_varlen_size(pMatch->length, pMatch->offset, nFollowsLiteral);
                               nPartialSizeBefore += apultra_get_match_varlen_size(pMatch->length, pMatch->offset, 0);
@@ -827,7 +829,7 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
                               nPartialSizeAfter += apultra_get_match_varlen_size(pBestMatch[nNextIndex].length, pBestMatch[nNextIndex].offset, 1);
                               nPartialSizeAfter += apultra_get_literals_varlen_size(pMatch->length - nMaxLen);
 
-                              for (int j = nMaxLen; j < pMatch->length; j++) {
+                              for (j = nMaxLen; j < pMatch->length; j++) {
                                  if (pInWindow[i + j] == 0 || match1[i + j])
                                     nPartialSizeAfter += TOKEN_SIZE_4BIT_MATCH + 4;
                                  else
@@ -839,10 +841,12 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
                                   * we have calculated that this is shorter */
 
                                  int nOrigLen = pMatch->length;
+                                 int j;
+
                                  pMatch->offset = pBestMatch[nNextIndex].offset;
                                  pMatch->length = nMaxLen;
 
-                                 for (int j = nMaxLen; j < nOrigLen; j++) {
+                                 for (j = nMaxLen; j < nOrigLen; j++) {
                                     pBestMatch[i + j].offset = match1[i + j];
                                     pBestMatch[i + j].length = (pInWindow[i + j] && match1[i+j] == 0) ? 0 : 1;
                                  }
@@ -881,8 +885,9 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
                /* Calculate the cost of replacing this match command by literals + the next command with the cost of encoding these literals (excluding 'nNumLiterals' bytes) */
                int nReducedFollowsLiteral = (nNumLiterals + pMatch->length) ? 1 : 0;
                int nReducedCommandSize = TOKEN_PREFIX_SIZE /* token */ + apultra_get_literals_varlen_size(nNumLiterals + pMatch->length + nNextLiterals) + (nNextLiterals << 3);
+               int j;
 
-               for (int j = 0; j < pMatch->length; j++) {
+               for (j = 0; j < pMatch->length; j++) {
                   if (pInWindow[i + j] == 0 || match1[i + j])
                      nReducedCommandSize += TOKEN_SIZE_4BIT_MATCH + 4;
                   else
@@ -1020,7 +1025,6 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
  */
 static int apultra_write_block(apultra_compressor *pCompressor, apultra_final_match *pBestMatch, const unsigned char *pInWindow, const int nStartOffset, const int nEndOffset, unsigned char *pOutData, int nOutOffset, const int nMaxOutDataSize, int *nCurBitsOffset, int *nCurBitMask, int *nFollowsLiteral, int *nCurRepMatchOffset, const int nBlockFlags) {
    int i, j;
-   int nInFirstLiteralOffset = 0;
    int nRepMatchOffset = *nCurRepMatchOffset;
 
    if (nBlockFlags & 1) {
