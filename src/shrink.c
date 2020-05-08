@@ -38,16 +38,14 @@
 #include "shrink.h"
 #include "format.h"
 
-#define TOKEN_PREFIX_SIZE        1 /* literal/ match bit */
+#define TOKEN_CODE_LARGE_MATCH   2 /* 10 */
+#define TOKEN_SIZE_LARGE_MATCH   2
 
-#define TOKEN_CODE_LARGE_MATCH   0 /* 0 */
-#define TOKEN_SIZE_LARGE_MATCH   1
+#define TOKEN_CODE_7BIT_MATCH    6 /* 110 */
+#define TOKEN_SIZE_7BIT_MATCH    3
 
-#define TOKEN_CODE_7BIT_MATCH    2 /* 10 */
-#define TOKEN_SIZE_7BIT_MATCH    2
-
-#define TOKEN_CODE_4BIT_MATCH    3 /* 11 */
-#define TOKEN_SIZE_4BIT_MATCH    2
+#define TOKEN_CODE_4BIT_MATCH    7 /* 111 */
+#define TOKEN_SIZE_4BIT_MATCH    3
 
 #define CountShift(N,bits)  if ((N)>>(bits)) { (N)>>=(bits); (n) += (bits); }
 
@@ -145,17 +143,6 @@ static int apultra_write_gamma2_value(unsigned char *pOutData, int nOutOffset, c
    }
 
    return nOutOffset;
-}
-
-/**
- * Get the number of extra bits required to represent a literals length
- *
- * @param nLength literals length
- *
- * @return number of extra bits required
- */
-static inline int apultra_get_literals_varlen_size(const int nLength) {
-   return nLength;
 }
 
 /**
@@ -362,7 +349,7 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
       else {
          nShortOffset = (pInWindow[i] == 0) ? 0 : (*match1);
          nMatchLen = 1;
-         nLiteralCost = TOKEN_PREFIX_SIZE /* token */ /* the actual cost of the literals themselves accumulates up the chain */ + (4 + TOKEN_SIZE_4BIT_MATCH) /* command and offset cost; no length cost */;
+         nLiteralCost = 4 + TOKEN_SIZE_4BIT_MATCH /* command and offset cost; no length cost */;
       }
 
       for (j = 0; j < nMatchesPerArrival && cur_arrival[j].from_slot; j++) {
@@ -432,7 +419,7 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
 
       apultra_match *match = pCompressor->match + ((i - nStartOffset) << MATCHES_PER_INDEX_SHIFT);
       unsigned short *match_depth = pCompressor->match_depth + ((i - nStartOffset) << MATCHES_PER_INDEX_SHIFT);
-      const int nRepMatchOffsetCost = TOKEN_PREFIX_SIZE /* token */ + apultra_get_rep_offset_varlen_size();
+      const int nRepMatchOffsetCost = apultra_get_rep_offset_varlen_size();
 
       int nMinRepLen[NMATCHES_PER_ARRIVAL];
       memset(nMinRepLen, 0, NMATCHES_PER_ARRIVAL * sizeof(int));
@@ -514,12 +501,12 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
                int nNoRepMatchOffsetCostForLit[2];
 
                if (nStartingMatchLen <= 3) {
-                  nNoRepMatchOffsetCostForLit[0] = TOKEN_PREFIX_SIZE /* token */ + apultra_get_offset_varlen_size(2, nMatchOffset, 0);
-                  nNoRepMatchOffsetCostForLit[1] = TOKEN_PREFIX_SIZE /* token */ + apultra_get_offset_varlen_size(2, nMatchOffset, 1);
+                  nNoRepMatchOffsetCostForLit[0] = apultra_get_offset_varlen_size(2, nMatchOffset, 0);
+                  nNoRepMatchOffsetCostForLit[1] = apultra_get_offset_varlen_size(2, nMatchOffset, 1);
                }
                else {
-                  nNoRepMatchOffsetCostForLit[0] = TOKEN_PREFIX_SIZE /* token */ + apultra_get_offset_varlen_size(4, nMatchOffset, 0);
-                  nNoRepMatchOffsetCostForLit[1] = TOKEN_PREFIX_SIZE /* token */ + apultra_get_offset_varlen_size(4, nMatchOffset, 1);
+                  nNoRepMatchOffsetCostForLit[0] = apultra_get_offset_varlen_size(4, nMatchOffset, 0);
+                  nNoRepMatchOffsetCostForLit[1] = apultra_get_offset_varlen_size(4, nMatchOffset, 1);
                }
 
                for (k = nStartingMatchLen; k <= nMatchLen; k++) {
@@ -690,8 +677,8 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
                   }
 
                   if (k == 3) {
-                     nNoRepMatchOffsetCostForLit[0] = TOKEN_PREFIX_SIZE /* token */ + apultra_get_offset_varlen_size(4, nMatchOffset, 0);
-                     nNoRepMatchOffsetCostForLit[1] = TOKEN_PREFIX_SIZE /* token */ + apultra_get_offset_varlen_size(4, nMatchOffset, 1);
+                     nNoRepMatchOffsetCostForLit[0] = apultra_get_offset_varlen_size(4, nMatchOffset, 0);
+                     nNoRepMatchOffsetCostForLit[1] = apultra_get_offset_varlen_size(4, nMatchOffset, 1);
                   }
                }
             }
@@ -751,7 +738,7 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
          if ((pBestMatch[i + 1].offset < MINMATCH3_OFFSET || (pBestMatch[i + 1].length + 1) >= 3 || (pBestMatch[i + 1].offset == nRepMatchOffset && nFollowsLiteral)) &&
             (pBestMatch[i + 1].offset < MINMATCH4_OFFSET || (pBestMatch[i + 1].length + 1) >= 4 || (pBestMatch[i + 1].offset == nRepMatchOffset && nFollowsLiteral))) {
 
-            int nCurPartialCommandSize = TOKEN_PREFIX_SIZE /* literal bit */ + ((pMatch->length == 1) ? (TOKEN_SIZE_4BIT_MATCH + 4) : 8 /* literal size */);
+            int nCurPartialCommandSize = (pMatch->length == 1) ? (TOKEN_SIZE_4BIT_MATCH + 4) : (1 /* literal bit */ + 8 /* literal size */);
             if (pBestMatch[i + 1].offset == nRepMatchOffset /* always follows a literal, the one at the current position */) {
                nCurPartialCommandSize += apultra_get_rep_offset_varlen_size() + apultra_get_match_varlen_size(pBestMatch[i + 1].length, pBestMatch[i + 1].offset, 1);
             }
@@ -827,13 +814,12 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
 
                               nPartialSizeAfter += apultra_get_rep_offset_varlen_size();
                               nPartialSizeAfter += apultra_get_match_varlen_size(pBestMatch[nNextIndex].length, pBestMatch[nNextIndex].offset, 1);
-                              nPartialSizeAfter += apultra_get_literals_varlen_size(pMatch->length - nMaxLen);
 
                               for (j = nMaxLen; j < pMatch->length; j++) {
                                  if (pInWindow[i + j] == 0 || match1[i + j])
                                     nPartialSizeAfter += TOKEN_SIZE_4BIT_MATCH + 4;
                                  else
-                                    nPartialSizeAfter += 8;
+                                    nPartialSizeAfter += 1 /* literal bit */ + 8 /* literal byte */;
                               }
 
                               if (nPartialSizeAfter < nPartialSizeBefore) {
@@ -862,7 +848,7 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
 
                /* This command is a match, is followed by 'nNextLiterals' literals and then by another match. Calculate this command's current cost (excluding 'nNumLiterals' bytes) */
 
-               int nCurCommandSize = TOKEN_PREFIX_SIZE /* token */ + apultra_get_literals_varlen_size(nNumLiterals);
+               int nCurCommandSize = nNumLiterals /* literal flag bits */;
                if (pMatch->offset == nRepMatchOffset && nFollowsLiteral && pMatch->length >= 2) {
                   nCurCommandSize += apultra_get_rep_offset_varlen_size() + apultra_get_match_varlen_size(pMatch->length, pMatch->offset, 1);
                }
@@ -871,7 +857,7 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
                }
 
                /* Calculate the next command's current cost */
-               int nNextCommandSize = TOKEN_PREFIX_SIZE /* token */ + apultra_get_literals_varlen_size(nNextLiterals) + (nNextLiterals << 3);
+               int nNextCommandSize = nNextLiterals /* literal flag bits */ + (nNextLiterals << 3) /* literal bytes */;
                int nCurRepOffset = (pMatch->length >= 2) ? pMatch->offset : nRepMatchOffset;
                if (pBestMatch[nNextIndex].offset == nCurRepOffset && nNextFollowsLiteral && pBestMatch[nNextIndex].length >= 2) {
                   nNextCommandSize += apultra_get_rep_offset_varlen_size() + apultra_get_match_varlen_size(pBestMatch[nNextIndex].length, pBestMatch[nNextIndex].offset, 1);
@@ -884,14 +870,14 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
 
                /* Calculate the cost of replacing this match command by literals + the next command with the cost of encoding these literals (excluding 'nNumLiterals' bytes) */
                int nReducedFollowsLiteral = (nNumLiterals + pMatch->length) ? 1 : 0;
-               int nReducedCommandSize = TOKEN_PREFIX_SIZE /* token */ + apultra_get_literals_varlen_size(nNumLiterals + pMatch->length + nNextLiterals) + (nNextLiterals << 3);
+               int nReducedCommandSize = nNumLiterals + nNextLiterals /* literal flag bits */ + (nNextLiterals << 3) /* literal bytes */;
                int j;
 
                for (j = 0; j < pMatch->length; j++) {
                   if (pInWindow[i + j] == 0 || match1[i + j])
                      nReducedCommandSize += TOKEN_SIZE_4BIT_MATCH + 4;
                   else
-                     nReducedCommandSize += 8;
+                     nReducedCommandSize += 1 /* literal bit */ + 8;
                }
 
                if (pBestMatch[nNextIndex].offset == nRepMatchOffset && nReducedFollowsLiteral && pBestMatch[nNextIndex].length >= 2) {
@@ -1069,7 +1055,7 @@ static int apultra_write_block(apultra_compressor *pCompressor, apultra_final_ma
             }
          }
 
-         int nCommandSize = TOKEN_PREFIX_SIZE /* token */ + nOffsetSize /* match offset */ + apultra_get_match_varlen_size(nMatchLen, nMatchOffset, (nTokenOffsetMode == 3) ? 1 : 0);
+         int nCommandSize = nOffsetSize /* match offset */ + apultra_get_match_varlen_size(nMatchLen, nMatchOffset, (nTokenOffsetMode == 3) ? 1 : 0);
 
          if ((nOutOffset + ((nCommandSize + 7) >> 3)) > nMaxOutDataSize)
             return -1;
@@ -1079,7 +1065,6 @@ static int apultra_write_block(apultra_compressor *pCompressor, apultra_final_ma
          int nActualTokenOffsetMode = nTokenOffsetMode;
          if (nActualTokenOffsetMode == 3)
             nActualTokenOffsetMode = 0;
-         nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, 1 /* match */, nCurBitsOffset, nCurBitMask);
          for (j = _token_size[nActualTokenOffsetMode] - 1; j >= 0; j--)
             nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, (_token_code[nActualTokenOffsetMode] & (1 << j)) ? 1 : 0, nCurBitsOffset, nCurBitMask);
 
@@ -1201,8 +1186,6 @@ static int apultra_write_block(apultra_compressor *pCompressor, apultra_final_ma
    }
 
    if (nBlockFlags & 2) {
-      nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, 1 /* match */, nCurBitsOffset, nCurBitMask);
-
       /* 8 bits offset */
 
       for (j = TOKEN_SIZE_7BIT_MATCH - 1; j >= 0; j--)
@@ -1243,7 +1226,7 @@ static int apultra_write_raw_uncompressed_block_v3(apultra_compressor *pCompress
    int j;
    int nInOffset = nStartOffset;
 
-   int nCommandSize = apultra_get_literals_varlen_size(nNumLiterals) + (nNumLiterals << 3) + TOKEN_PREFIX_SIZE + TOKEN_SIZE_7BIT_MATCH /* token */ + 8 /* match offset */;
+   int nCommandSize = nNumLiterals /* literal flag bits */ + (nNumLiterals << 3) /* literal bytes */ + TOKEN_SIZE_7BIT_MATCH /* token */ + 8 /* match offset */;
    if ((nOutOffset + ((nCommandSize + 7) >> 3)) > nMaxOutDataSize)
       return -1;
 
@@ -1256,8 +1239,6 @@ static int apultra_write_raw_uncompressed_block_v3(apultra_compressor *pCompress
    }
 
    nNumLiterals = 0;
-
-   nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, 1 /* match */, nCurBitsOffset, nCurBitMask);
 
    /* 8 bits offset */
    for (j = TOKEN_SIZE_7BIT_MATCH - 1; j >= 0; j--)
