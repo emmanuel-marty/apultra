@@ -30,7 +30,7 @@
 ;  * ax:    decompressed size
 ;  ---------------------------------------------------------------------------
 
-%macro apl_get_bit 0            ; read bit into carry; trashes al
+%macro apl_get_bit 0            ; read bit into carry
         add     al,al           ; shift bit queue, and high bit into carry
         jnz     %%gotbit        ; queue not empty, bits remain
         lodsb                   ; read 8 new bits
@@ -44,13 +44,13 @@ apl_decompress:
 
         ; === register map ===
         ; al: bit queue
-        ; ah: unused
-        ; bx: scratch register for preserving the bit queue
+        ; ah: unused, but value is trashed
+        ; bx: follows_literal
         ; cx: scratch register for reading gamma2 codes and storing copy length
         ; dx: match offset (and rep-offset)
         ; si: input (compressed data) pointer
         ; di: output (decompressed data) pointer
-        ; bp: follows_literal
+        ; bp: unused 
 
         mov     al,080H         ; clear bit queue(al) and set high bit to move into carry
         xor     dx,dx           ; invalidate rep offset
@@ -58,7 +58,7 @@ apl_decompress:
 .literal:
         movsb                   ; read and write literal byte
 .next_command_after_literal:
-        mov     bp,02H          ; set follows_literal(bp) to 2
+        mov     bx,02H          ; set follows_literal(bx) to 2
 
 .next_command:
         apl_get_bit             ; read 'literal or match' bit
@@ -71,7 +71,7 @@ apl_decompress:
 
                                 ; 10: 8+n bits match
         call    .get_gamma2     ; read gamma2-coded high offset bits
-        sub     cx,bp           ; high offset bits == 2 when follows_literal == 2 ?
+        sub     cx,bx           ; high offset bits == 2 when follows_literal == 2 ?
                                 ; (a gamma2 value is always >= 2, so substracting follows_literal when it
                                 ; is == 1 will never result in zero)
         jne     .not_repmatch   ; if not, not a rep-match
@@ -102,7 +102,7 @@ apl_decompress:
 
 .got_len:
         push    ds              ; save ds:si (current pointer to compressed data)
-        mov     bp,si
+        mov     bx,si
 
         push    es
         pop     ds
@@ -110,13 +110,13 @@ apl_decompress:
         sub     si,dx
         rep     movsb           ; copy matched bytes
 
-        mov     si,bp           ; restore ds:si
+        mov     si,bx           ; restore ds:si
         pop     ds
 
-        mov     bp,01H          ; set follows_literal to 1
+        mov     bx,01H          ; set follows_literal to 1
         jmp     short .next_command
 
-        ; read gamma2-coded value into cx. trashes al
+        ; read gamma2-coded value into cx
 
 .get_gamma2:
         xor     cx,cx           ; initialize to 1 so that value will start at 2
@@ -129,14 +129,6 @@ apl_decompress:
         jc      .gamma2_loop    ; loop until a zero continuation bit is read
 
         ret
-
-        ; 4 bits offset / write a zero
-
-.write_zero:
-        xchg    ax,cx           ; put zero in al, put bit queue in cl
-        stosb                   ; short offset 0: write a 0
-        mov     ax,cx           ; put bit queue back into al
-        jmp     short .next_command_after_literal
 
         ; handle 7 bits offset + 1 bit len or 4 bits offset / 1 byte copy
 
@@ -169,15 +161,16 @@ apl_decompress:
         adc     cl,cl
         apl_get_bit
         adc     cl,cl
-        jz      .write_zero
+        xchg    ax,cx           ; preserve bit queue in cx, put offset in ax
+        jz      .write_zero     ; if offset is 0, write a zero byte
 
                                 ; short offset 1-15
-        sub     di,cx           ; point to destination in es:di - offset in cx
-        xchg    ax,bx
-        mov     al,[es:di]
-        add     di,cx           ; restore di
+        mov     bx,di
+        sub     bx,ax           ; point to destination in es:di - offset in cx
+        mov     al,[es:bx]      ; read byte from short offset
+.write_zero:
         stosb                   ; copy matched byte
-        xchg    ax,bx
+        mov     ax,cx           ; restore bit queue in al
         jmp     .next_command_after_literal
 
 .done:
