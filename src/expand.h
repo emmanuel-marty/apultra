@@ -44,7 +44,7 @@ extern "C" {
  *
  * @param pInputData compressed data
  * @param nInputSize compressed size in bytes
- * @param nFlags compression flags (a bitmask of APULTRA_FLAG_xxx, or 0)
+ * @param nFlags compression flags (set to 0)
  *
  * @return maximum decompressed size
  */
@@ -57,7 +57,7 @@ size_t apultra_get_max_decompressed_size(const unsigned char *pInputData, size_t
  * @param pOutBuffer buffer for decompressed data
  * @param nInputSize compressed size in bytes
  * @param nMaxOutBufferSize maximum capacity of decompression buffer
- * @param nFlags compression flags (a bitmask of APULTRA_FLAG_xxx, or 0)
+ * @param nFlags compression flags (set to 0)
  *
  * @return actual decompressed size, or -1 for error
  */

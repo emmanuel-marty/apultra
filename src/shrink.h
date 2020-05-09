@@ -49,7 +49,7 @@ extern "C" {
 #define VISITED_FLAG 0x8000000000000000ULL
 #define EXCL_VISITED_MASK  0x7fffffffffffffffULL
 
-#define NMATCHES_PER_ARRIVAL 24
+#define NMATCHES_PER_ARRIVAL 30
 #define NMATCHES_PER_ARRIVAL_SMALL 9
 
 #define NMATCHES_PER_INDEX 64
@@ -72,16 +72,17 @@ typedef struct _apultra_final_match {
 /** Forward arrival slot */
 typedef struct {
    int cost;
+
    unsigned int from_pos:21;
-   int from_slot:8;
+   int from_slot:6;
    unsigned int follows_literal:1;
+   unsigned int short_offset:4;
 
    unsigned int rep_offset;
-   unsigned int rep_pos;
-   int score;
-
-   unsigned int match_offset:21;
+   unsigned int rep_pos:21;
    unsigned int match_len:11;
+
+   int score;
 } apultra_arrival;
 
 /** Compression statistics */
@@ -91,6 +92,8 @@ typedef struct _apultra_stats {
    int num_7bit_matches;
    int num_variable_matches;
    int num_rep_matches;
+
+   int safe_dist;
 
    int min_offset;
    int max_offset;
@@ -130,9 +133,6 @@ typedef struct _apultra_compressor {
    apultra_stats stats;
 } apultra_compressor;
 
-/** Compression flags */
-#define APULTRA_FLAG_ENHANCED   1  /**< Use enhanced (incompatible) format */
-
 /**
  * Get maximum compressed size of input(source) data
  *
@@ -149,7 +149,7 @@ size_t apultra_get_max_compressed_size(size_t nInputSize);
  * @param pOutBuffer buffer for compressed data
  * @param nInputSize input(source) size in bytes
  * @param nMaxOutBufferSize maximum capacity of compression buffer
- * @param nFlags compression flags (a bitmask of APULTRA_FLAG_xxx, or 0)
+ * @param nFlags compression flags (set to 0)
  * @param progress progress function, called after compressing each block, or NULL for none
  * @param pStats pointer to compression stats that are filled if this function is successful, or NULL
  * @param nMaxWindowSize maximum window size to use (0 for default)
