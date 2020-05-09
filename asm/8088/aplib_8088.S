@@ -31,11 +31,10 @@
 ;  ---------------------------------------------------------------------------
 
 %macro apl_get_bit 0            ; read bit into carry; trashes al
-        add     bl,bl           ; shift bit queue, and high bit into carry
+        add     al,al           ; shift bit queue, and high bit into carry
         jnz     %%gotbit        ; queue not empty, bits remain
         lodsb                   ; read 8 new bits
-        mov     bl,al           ; move bits into queue
-        adc     bl,bl           ; shift bit queue, and high bit into carry
+        adc     al,al           ; shift bit queue, and high bit into carry
 %%gotbit:
 %endmacro
 
@@ -44,17 +43,16 @@ apl_decompress:
         cld                     ; make string operations go forward
 
         ; === register map ===
-        ; al: scratch register for reading the next input byte
-        ; ah: standard: unused  enhanced: nybble queue (for 4-bit offsets)
-        ; bl: bit queue
-        ; bh: standard: unused  enhanced: dibit queue (for gamma2 codes)
+        ; al: bit queue
+        ; ah: unused
+        ; bx: scratch register for preserving the bit queue
         ; cx: scratch register for reading gamma2 codes and storing copy length
         ; dx: match offset (and rep-offset)
         ; si: input (compressed data) pointer
         ; di: output (decompressed data) pointer
         ; bp: follows_literal
 
-        mov     bl,080H         ; clear bit queue(bl) and set high bit to move into carry
+        mov     al,080H         ; clear bit queue(al) and set high bit to move into carry
         xor     dx,dx           ; invalidate rep offset
 
 .literal:
@@ -85,8 +83,8 @@ apl_decompress:
         dec     cx              ; we need to substract 2 to the high offset byte when follows_literal == 1 and
                                 ; substract 3 when follows_literal == 2, so fix it here
         mov     dh,cl           ; transfer high offset bits to dh
-        lodsb                   ; read low offset byte
-        mov     dl,al           ; transfer low offset bits to dl
+        mov     dl,[si]         ; read low offset byte in dl
+        inc     si
 
         call    .get_gamma2     ; read match length
         cmp     dh,07DH         ; offset >= 32000 ?
@@ -135,8 +133,9 @@ apl_decompress:
         ; 4 bits offset / write a zero
 
 .write_zero:
-        mov     al,cl
+        xchg    ax,cx           ; put zero in al, put bit queue in cl
         stosb                   ; short offset 0: write a 0
+        mov     ax,cx           ; put bit queue back into al
         jmp     short .next_command_after_literal
 
         ; handle 7 bits offset + 1 bit len or 4 bits offset / 1 byte copy
@@ -148,14 +147,14 @@ apl_decompress:
 
                                 ; 110: 7 bits offset + 1 bit length
                                 
-        lodsb                   ; read offset + length
+        mov     dl,[si]         ; read offset + length in dl
+        inc     si
 
         inc     cx              ; prepare cx for length below
-        shr     al,1            ; shift len bit into carry, and offset in place
+        shr     dl,1            ; shift len bit into carry, and offset in place
         je      .done           ; if zero offset: EOD
         adc     cx,cx           ; len in cx: 1*2 + carry bit = 2 or 3
 
-        mov     dl,al           ; move offset to dl
         xor     dh,dh           ; clear high bits of offset
         jmp     short .got_len
 
@@ -174,9 +173,11 @@ apl_decompress:
 
                                 ; short offset 1-15
         sub     di,cx           ; point to destination in es:di - offset in cx
+        xchg    ax,bx
         mov     al,[es:di]
         add     di,cx           ; restore di
         stosb                   ; copy matched byte
+        xchg    ax,bx
         jmp     .next_command_after_literal
 
 .done:
