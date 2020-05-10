@@ -1,4 +1,4 @@
-;  aplib_8088_fast.S - speed-optimized aPLib decompressor for 8088 - 190 bytes
+;  aplib_8088_fast.S - speed-optimized aPLib decompressor for 8088 - 188 bytes
 ;
 ;  Copyright (C) 2019 Emmanuel Marty
 ;
@@ -50,7 +50,7 @@ apl_decompress:
         ; dx: match offset (and rep-offset)
         ; si: input (compressed data) pointer
         ; di: output (decompressed data) pointer
-        ; bp: unused 
+        ; bp: temporary value, trashed
 
         mov     al,080H         ; clear bit queue(al) and set high bit to move into carry
         xor     dx,dx           ; invalidate rep offset
@@ -58,7 +58,7 @@ apl_decompress:
 .literal:
         movsb                   ; read and write literal byte
 .next_command_after_literal:
-        mov     bx,02H          ; set follows_literal(bx) to 2
+        mov     bx,03H          ; set follows_literal(bx) to 3
 
 .next_command:
         apl_get_bit             ; read 'literal or match' bit
@@ -71,17 +71,15 @@ apl_decompress:
 
                                 ; 10: 8+n bits match
         call    .get_gamma2     ; read gamma2-coded high offset bits
-        sub     cx,bx           ; high offset bits == 2 when follows_literal == 2 ?
+        sub     cx,bx           ; high offset bits == 2 when follows_literal == 3 ?
                                 ; (a gamma2 value is always >= 2, so substracting follows_literal when it
-                                ; is == 1 will never result in zero)
-        jne     .not_repmatch   ; if not, not a rep-match
+                                ; is == 2 will never result in zero)
+        jae     .not_repmatch   ; if not, not a rep-match
 
         call    .get_gamma2     ; read match length
         jmp     short .got_len  ; go copy
 
 .not_repmatch:
-        dec     cx              ; we need to substract 2 to the high offset byte when follows_literal == 1 and
-                                ; substract 3 when follows_literal == 2, so fix it here
         mov     dh,cl           ; transfer high offset bits to dh
         mov     dl,[si]         ; read low offset byte in dl
         inc     si
@@ -102,7 +100,7 @@ apl_decompress:
 
 .got_len:
         push    ds              ; save ds:si (current pointer to compressed data)
-        mov     bx,si
+        mov     bp,si
 
         push    es
         pop     ds
@@ -110,10 +108,10 @@ apl_decompress:
         sub     si,dx
         rep     movsb           ; copy matched bytes
 
-        mov     si,bx           ; restore ds:si
+        mov     si,bp           ; restore ds:si
         pop     ds
 
-        mov     bx,01H          ; set follows_literal to 1
+        mov     bl,02H          ; set follows_literal to 2 (bx is unmodified by match commands)
         jmp     short .next_command
 
         ; read gamma2-coded value into cx
@@ -165,8 +163,8 @@ apl_decompress:
         jz      .write_zero     ; if offset is 0, write a zero byte
 
                                 ; short offset 1-15
-        mov     bx,di
-        sub     bx,ax           ; point to destination in es:di - offset in cx
+        mov     bx,di           ; point to destination in es:di - offset in ax
+        sub     bx,ax           ; we trash bx, it will be reset to 3 when we loop
         mov     al,[es:bx]      ; read byte from short offset
 .write_zero:
         stosb                   ; copy matched byte
