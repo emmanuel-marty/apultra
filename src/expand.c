@@ -264,14 +264,14 @@ size_t apultra_decompress(const unsigned char *pInputData, unsigned char *pOutDa
 
             nFollowsLiteral = 1;
             const unsigned char *pSrc = pCurOutData - nMatchOffset;
-            if (pSrc >= pOutData) {
+            if (pSrc >= pOutData && (pSrc + nMatchLen) <= pOutDataEnd) {
                if (nMatchLen < 11 && nMatchOffset >= 8 && pCurOutData < pOutDataFastEnd) {
                   memcpy(pCurOutData, pSrc, 8);
                   memcpy(pCurOutData + 8, pSrc + 8, 2);
                   pCurOutData += nMatchLen;
                }
                else {
-                  if ((pCurOutData + nMatchLen) <= pOutDataEnd && (pSrc + nMatchLen) <= pOutDataEnd) {
+                  if ((pCurOutData + nMatchLen) <= pOutDataEnd) {
                      /* Do a deterministic, left to right byte copy instead of memcpy() so as to handle overlaps */
 
                      if (nMatchOffset >= 16 && (pCurOutData + nMatchLen) < (pOutDataFastEnd - 15)) {

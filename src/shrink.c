@@ -1303,7 +1303,7 @@ static int apultra_optimize_and_write_block(apultra_compressor *pCompressor, con
          while (m < NMATCHES_PER_INDEX && match[m].length)
             m++;
 
-         for (nMatchPos = next_offset_for_pos[nPosition - nPreviousBlockSize]; m < 8 && nMatchPos >= 0; nMatchPos = next_offset_for_pos[nMatchPos - nPreviousBlockSize]) {
+         for (nMatchPos = next_offset_for_pos[nPosition - nPreviousBlockSize]; m > 1 && m < 8 && nMatchPos >= 0; nMatchPos = next_offset_for_pos[nMatchPos - nPreviousBlockSize]) {
             if (pInWindow[nMatchPos + 1] == pInWindow[nPosition + 1]) {
                int nMatchOffset = nPosition - nMatchPos;
                int nExistingMatchIdx;
