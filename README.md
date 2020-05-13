@@ -26,6 +26,7 @@ Inspirations:
 
 Also of interest:
  * [oapack](https://gitlab.com/eugene77/oapack) by Eugene Larchenko, a brute-force (exhaustive) optimal packer for the aPLib format. 
+ * Check out [Kitsune's Curse](https://www.usebox.net/jjm/kitsunes-curse/), a new game for the Amstrad CPC 464/6128 by usebox.net that uses apultra for compression.
 
 License:
 
