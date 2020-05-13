@@ -24,6 +24,9 @@ Inspirations:
  * [LZ4](https://github.com/lz4/lz4) by Yann Collet. 
  * spke for help and support
 
+Also of interest:
+ * [oapack](https://gitlab.com/eugene77/oapack) by Eugene Larchenko, a brute-force (exhaustive) optimal packer for the aPLib format. 
+
 License:
 
 * The apultra code is available under the Zlib license.
