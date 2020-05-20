@@ -45,7 +45,7 @@
 #define OPT_VERBOSE        1
 #define OPT_STATS          2
 
-#define TOOL_VERSION "1.2.1"
+#define TOOL_VERSION "1.2.2"
 
 /*---------------------------------------------------------------------------*/
 
@@ -552,7 +552,7 @@ static int do_self_test(const unsigned int nOptions, const unsigned int nMaxWind
    size_t nDataSizeStep = 128;
    float fProbabilitySizeStep = nIsQuickTest ? 0.005f : 0.0005f;
 
-   for (nGeneratedDataSize = 1024; nGeneratedDataSize <= (nIsQuickTest ? 1024 : (4 * BLOCK_SIZE)); nGeneratedDataSize += nDataSizeStep) {
+   for (nGeneratedDataSize = 1024; nGeneratedDataSize <= (nIsQuickTest ? 1024U : (4U * BLOCK_SIZE)); nGeneratedDataSize += nDataSizeStep) {
       float fMatchProbability;
 
       fprintf(stdout, "size %zd", nGeneratedDataSize);
