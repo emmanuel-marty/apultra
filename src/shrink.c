@@ -542,7 +542,7 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
                            int nMatchCmdCost = nNoRepMatchMatchLenCost + nNoRepMatchOffsetCostForLit[cur_arrival[j].follows_literal];
                            int nCodingChoiceCost = nPrevCost /* the actual cost of the literals themselves accumulates up the chain */ + nMatchCmdCost;
 
-                           if (nCodingChoiceCost <= pDestSlots[nMatchesPerArrival - 1].cost) {
+                           if (nCodingChoiceCost <= pDestSlots[nMatchesPerArrival - 2].cost) {
                               int exists = 0;
 
                               for (n = 0;
