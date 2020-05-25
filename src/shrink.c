@@ -262,17 +262,20 @@ static void apultra_insert_forward_match(apultra_compressor *pCompressor, const 
             nRepPos &&
             nRepPos >= nMatchOffset &&
             nRepPos < nEndOffset) {
-            int nCurRepLen = 0;
 
             int nMaxRepLen = nEndOffset - nRepPos;
             if (nMaxRepLen > LCP_MAX)
                nMaxRepLen = LCP_MAX;
-            while ((nCurRepLen + 8) < nMaxRepLen && !memcmp(pInWindow + nRepPos + nCurRepLen, pInWindow + nRepPos - nMatchOffset + nCurRepLen, 8))
-               nCurRepLen += 8;
-            while ((nCurRepLen + 4) < nMaxRepLen && !memcmp(pInWindow + nRepPos + nCurRepLen, pInWindow + nRepPos - nMatchOffset + nCurRepLen, 4))
-               nCurRepLen += 4;
-            while (nCurRepLen < nMaxRepLen && pInWindow[nRepPos + nCurRepLen] == pInWindow[nRepPos - nMatchOffset + nCurRepLen])
-               nCurRepLen++;
+            const unsigned char *pInWindowAtRepOffset = pInWindow + nRepPos;
+            const unsigned char *pInWindowMax = pInWindowAtRepOffset + nMaxRepLen;
+            while ((pInWindowAtRepOffset + 8) < pInWindowMax && !memcmp(pInWindowAtRepOffset, pInWindowAtRepOffset - nMatchOffset, 8))
+               pInWindowAtRepOffset += 8;
+            while ((pInWindowAtRepOffset + 4) < pInWindowMax && !memcmp(pInWindowAtRepOffset, pInWindowAtRepOffset - nMatchOffset, 4))
+               pInWindowAtRepOffset += 4;
+            while (pInWindowAtRepOffset < pInWindowMax && pInWindowAtRepOffset[0] == pInWindowAtRepOffset[- nMatchOffset])
+               pInWindowAtRepOffset++;
+
+            int nCurRepLen = (int)(pInWindowAtRepOffset - (pInWindow + nRepPos));
 
             if (nCurRepLen >= 2) {
                apultra_match *fwd_match = pCompressor->match + ((nRepPos - nStartOffset) << MATCHES_PER_INDEX_SHIFT);
@@ -453,12 +456,20 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
                      if (i >= nRepOffset &&
                         (i - nRepOffset + nMatchLen) <= nEndOffset) {
                         nCurMaxLen = nMinRepLen[j];
-                        while ((nCurMaxLen + 8) < nMatchLen && !memcmp(pInWindow + i - nRepOffset + nCurMaxLen, pInWindow + i - nMatchOffset + nCurMaxLen, 8))
-                           nCurMaxLen += 8;
-                        while ((nCurMaxLen + 4) < nMatchLen && !memcmp(pInWindow + i - nRepOffset + nCurMaxLen, pInWindow + i - nMatchOffset + nCurMaxLen, 4))
-                           nCurMaxLen += 4;
-                        while (nCurMaxLen < nMatchLen && pInWindow[i - nRepOffset + nCurMaxLen] == pInWindow[i - nMatchOffset + nCurMaxLen])
-                           nCurMaxLen++;
+
+                        const unsigned char *pInWindowStart = pInWindow + i - nRepOffset;
+                        const unsigned char *pInWindowAtRepOffset = pInWindowStart + nCurMaxLen;
+                        const unsigned char *pInWindowMax = pInWindow + i - nRepOffset + nMatchLen;
+                        int nMatchRepOffsetDelta = nRepOffset - nMatchOffset;
+
+                        while ((pInWindowAtRepOffset + 8) < pInWindowMax && !memcmp(pInWindowAtRepOffset, pInWindowAtRepOffset + nMatchRepOffsetDelta, 8))
+                           pInWindowAtRepOffset += 8;
+                        while ((pInWindowAtRepOffset + 4) < pInWindowMax && !memcmp(pInWindowAtRepOffset, pInWindowAtRepOffset + nMatchRepOffsetDelta, 4))
+                           pInWindowAtRepOffset += 4;
+                        while (pInWindowAtRepOffset < pInWindowMax && pInWindowAtRepOffset[0] == pInWindowAtRepOffset[nMatchRepOffsetDelta])
+                           pInWindowAtRepOffset++;
+
+                        nCurMaxLen = (int)(pInWindowAtRepOffset - pInWindowStart);
                         nMinRepLen[j] = nCurMaxLen;
                      }
                   }
