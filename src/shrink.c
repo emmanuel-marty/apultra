@@ -391,7 +391,7 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
                      if (nCodingChoiceCost < pDestArrival->cost || nScore < pDestArrival->score) {
                         int z;
 
-                        for (z = n; z < nMatchesPerArrival - 1; z++) {
+                        for (z = n; z < nMatchesPerArrival - 1 && pDestSlots[z].from_slot; z++) {
                            if (pDestSlots[z].rep_offset == cur_arrival[j].rep_offset)
                               break;
                         }
@@ -591,7 +591,7 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
                                        if (nCodingChoiceCost < pDestArrival->cost || nScore < pDestArrival->score) {
                                           int z;
 
-                                          for (z = n; z < nMatchesPerArrival - 1; z++) {
+                                          for (z = n; z < nMatchesPerArrival - 1 && pDestSlots[z].from_slot; z++) {
                                              if (pDestSlots[z].rep_offset == nMatchOffset)
                                                 break;
                                           }
@@ -659,7 +659,7 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
                                     if (nRepCodingChoiceCost < pDestArrival->cost || nScore < pDestArrival->score) {
                                        int z;
 
-                                       for (z = n; z < nMatchesPerArrival - 1; z++) {
+                                       for (z = n; z < nMatchesPerArrival - 1 && pDestSlots[z].from_slot; z++) {
                                           if (pDestSlots[z].rep_offset == nRepOffset)
                                              break;
                                        }
