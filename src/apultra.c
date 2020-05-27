@@ -44,6 +44,7 @@
 
 #define OPT_VERBOSE        1
 #define OPT_STATS          2
+#define OPT_BACKWARD       4
 
 #define TOOL_VERSION "1.2.2"
 
@@ -85,6 +86,17 @@ static long long do_get_time() {
    nTime = (long long)tm.tv_sec * 1000000LL + (long long)tm.tv_usec;
 #endif
    return nTime;
+}
+
+static void do_reverse_buffer(unsigned char *pBuffer, size_t nBufferSize) {
+   size_t nMidPoint = nBufferSize / 2;
+   size_t i, j;
+
+   for (i = 0, j = nBufferSize - 1; i < nMidPoint; i++, j--) {
+      unsigned char c = pBuffer[i];
+      pBuffer[i] = pBuffer[j];
+      pBuffer[j] = c;
+   }
 }
 
 /*---------------------------------------------------------------------------*/
@@ -136,6 +148,9 @@ static int do_compress(const char *pszInFilename, const char *pszOutFilename, co
 
    fclose(f_in);
 
+   if (nOptions & OPT_BACKWARD)
+      do_reverse_buffer(pDecompressedData, nOriginalSize);
+
    /* Allocate max compressed size */
 
    nMaxCompressedSize = apultra_get_max_compressed_size(nOriginalSize);
@@ -161,6 +176,9 @@ static int do_compress(const char *pszInFilename, const char *pszOutFilename, co
       fprintf(stderr, "compression error for '%s'\n", pszInFilename);
       return 100;
    }
+
+   if (nOptions & OPT_BACKWARD)
+      do_reverse_buffer(pCompressedData, nCompressedSize);
 
    if (pszOutFilename) {
       FILE *f_out;
@@ -250,6 +268,9 @@ static int do_decompress(const char *pszInFilename, const char *pszOutFilename, 
 
    fclose(f_in);
 
+   if (nOptions & OPT_BACKWARD)
+      do_reverse_buffer(pCompressedData, nCompressedSize);
+
    /* Allocate max decompressed size */
 
    nMaxDecompressedSize = apultra_get_max_decompressed_size(pCompressedData, nCompressedSize, nFlags);
@@ -280,6 +301,9 @@ static int do_decompress(const char *pszInFilename, const char *pszOutFilename, 
       fprintf(stderr, "decompression error for '%s'\n", pszInFilename);
       return 100;
    }
+
+   if (nOptions & OPT_BACKWARD)
+      do_reverse_buffer(pDecompressedData, nOriginalSize);
 
    if (pszOutFilename) {
       FILE *f_out;
@@ -345,6 +369,9 @@ static int do_compare(const char *pszInFilename, const char *pszOutFilename, con
 
    fclose(f_in);
 
+   if (nOptions & OPT_BACKWARD)
+      do_reverse_buffer(pCompressedData, nCompressedSize);
+
    /* Read the whole original file in memory */
 
    f_in = fopen(pszOutFilename, "rb");
@@ -409,6 +436,9 @@ static int do_compare(const char *pszInFilename, const char *pszOutFilename, con
       fprintf(stderr, "decompression error for '%s'\n", pszInFilename);
       return 100;
    }
+
+   if (nOptions & OPT_BACKWARD)
+      do_reverse_buffer(pDecompressedData, nDecompressedSize);
 
    if (nDecompressedSize != nOriginalSize || memcmp(pDecompressedData, pOriginalData, nOriginalSize)) {
       fprintf(stderr, "error comparing compressed file '%s' with original '%s'\n", pszInFilename, pszOutFilename);
@@ -695,6 +725,9 @@ static int do_compr_benchmark(const char *pszInFilename, const char *pszOutFilen
 
    fclose(f_in);
 
+   if (nOptions & OPT_BACKWARD)
+      do_reverse_buffer(pFileData, nFileSize);
+
    /* Allocate max compressed size */
 
    nMaxCompressedSize = apultra_get_max_compressed_size(nFileSize);
@@ -757,6 +790,9 @@ static int do_compr_benchmark(const char *pszInFilename, const char *pszOutFilen
 
       nRightGuardPos = nActualCompressedSize;
    }
+
+   if (nOptions & OPT_BACKWARD)
+      do_reverse_buffer(pCompressedData + 1024, nActualCompressedSize);
 
    if (pszOutFilename) {
       FILE *f_out;
@@ -821,6 +857,9 @@ static int do_dec_benchmark(const char *pszInFilename, const char *pszOutFilenam
 
    fclose(f_in);
 
+   if (nOptions & OPT_BACKWARD)
+      do_reverse_buffer(pFileData, nFileSize);
+
    /* Allocate max decompressed size */
 
    nMaxDecompressedSize = apultra_get_max_decompressed_size(pFileData, nFileSize, nFlags);
@@ -857,6 +896,9 @@ static int do_dec_benchmark(const char *pszInFilename, const char *pszOutFilenam
       if (nBestDecTime == -1 || nBestDecTime > nCurDecTime)
          nBestDecTime = nCurDecTime;
    }
+
+   if (nOptions & OPT_BACKWARD)
+      do_reverse_buffer(pDecompressedData, nActualDecompressedSize);
 
    if (pszOutFilename) {
       FILE *f_out;
@@ -1007,6 +1049,13 @@ int main(int argc, char **argv) {
          else
             bArgsError = true;
       }
+      else if (!strcmp(argv[i], "-b")) {
+         if ((nOptions & OPT_BACKWARD) == 0) {
+            nOptions |= OPT_BACKWARD;
+         }
+         else
+            bArgsError = true;
+      }
       else {
          if (!pszInFilename)
             pszInFilename = argv[i];
@@ -1031,6 +1080,7 @@ int main(int argc, char **argv) {
       fprintf(stderr, "usage: %s [-c] [-d] [-v] [-r] <infile> <outfile>\n", argv[0]);
       fprintf(stderr, "        -c: check resulting stream after compressing\n");
       fprintf(stderr, "        -d: decompress (default: compress)\n");
+      fprintf(stderr, "        -b: backwards compression or decompression\n");
       fprintf(stderr, " -w <size>: maximum window size, in bytes (16..2097152), defaults to maximum\n");
       fprintf(stderr, "   -cbench: benchmark in-memory compression\n");
       fprintf(stderr, "   -dbench: benchmark in-memory decompression\n");
