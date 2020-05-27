@@ -639,45 +639,56 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
                            }
 
                            if (!exists) {
-                              int nn;
+                              int nScore = cur_arrival[j].score + 2;
 
-                              for (nn = n;
-                                 nn < nMatchesPerArrival && pDestSlots[nn].cost == nRepCodingChoiceCost;
-                                 nn++) {
-                                 if (pDestSlots[nn].rep_offset == nRepOffset) {
+                              for (;
+                                 n < nMatchesPerArrival && pDestSlots[n].cost == nRepCodingChoiceCost && nScore >= pDestSlots[n].score;
+                                 n++) {
+                                 if (pDestSlots[n].rep_offset == nRepOffset) {
                                     exists = 1;
                                     break;
                                  }
                               }
 
                               if (!exists) {
-                                 int nScore = cur_arrival[j].score + 2;
+                                 int nn;
 
-                                 for (; n < nMatchesPerArrival; n++) {
-                                    apultra_arrival* pDestArrival = &pDestSlots[n];
-
-                                    if (nRepCodingChoiceCost < pDestArrival->cost || nScore < pDestArrival->score) {
-                                       int z;
-
-                                       for (z = n; z < nMatchesPerArrival - 1 && pDestSlots[z].from_slot; z++) {
-                                          if (pDestSlots[z].rep_offset == nRepOffset)
-                                             break;
-                                       }
-
-                                       memmove(&pDestSlots[n + 1],
-                                          &pDestSlots[n],
-                                          sizeof(apultra_arrival) * (z - n));
-
-                                       pDestArrival->cost = nRepCodingChoiceCost;
-                                       pDestArrival->from_pos = i;
-                                       pDestArrival->from_slot = j + 1;
-                                       pDestArrival->short_offset = 0;
-                                       pDestArrival->match_len = k;
-                                       pDestArrival->follows_literal = 0;
-                                       pDestArrival->score = nScore;
-                                       pDestArrival->rep_offset = nRepOffset;
-                                       pDestArrival->rep_pos = i;
+                                 for (nn = n;
+                                    nn < nMatchesPerArrival && pDestSlots[nn].cost == nRepCodingChoiceCost;
+                                    nn++) {
+                                    if (pDestSlots[nn].rep_offset == nRepOffset) {
+                                       exists = 1;
                                        break;
+                                    }
+                                 }
+
+                                 if (!exists) {
+                                    for (; n < nMatchesPerArrival; n++) {
+                                       apultra_arrival* pDestArrival = &pDestSlots[n];
+
+                                       if (nRepCodingChoiceCost < pDestArrival->cost || nScore < pDestArrival->score) {
+                                          int z;
+
+                                          for (z = n; z < nMatchesPerArrival - 1 && pDestSlots[z].from_slot; z++) {
+                                             if (pDestSlots[z].rep_offset == nRepOffset)
+                                                break;
+                                          }
+
+                                          memmove(&pDestSlots[n + 1],
+                                             &pDestSlots[n],
+                                             sizeof(apultra_arrival) * (z - n));
+
+                                          pDestArrival->cost = nRepCodingChoiceCost;
+                                          pDestArrival->from_pos = i;
+                                          pDestArrival->from_slot = j + 1;
+                                          pDestArrival->short_offset = 0;
+                                          pDestArrival->match_len = k;
+                                          pDestArrival->follows_literal = 0;
+                                          pDestArrival->score = nScore;
+                                          pDestArrival->rep_offset = nRepOffset;
+                                          pDestArrival->rep_pos = i;
+                                          break;
+                                       }
                                     }
                                  }
                               }
