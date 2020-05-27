@@ -46,7 +46,7 @@
 #define OPT_STATS          2
 #define OPT_BACKWARD       4
 
-#define TOOL_VERSION "1.2.2"
+#define TOOL_VERSION "1.3.0"
 
 /*---------------------------------------------------------------------------*/
 
@@ -1077,7 +1077,7 @@ int main(int argc, char **argv) {
 
    if (bArgsError || !pszInFilename || !pszOutFilename) {
       fprintf(stderr, "apultra command-line tool v" TOOL_VERSION " by Emmanuel Marty and spke\n");
-      fprintf(stderr, "usage: %s [-c] [-d] [-v] [-r] <infile> <outfile>\n", argv[0]);
+      fprintf(stderr, "usage: %s [-c] [-d] [-v] [-b] <infile> <outfile>\n", argv[0]);
       fprintf(stderr, "        -c: check resulting stream after compressing\n");
       fprintf(stderr, "        -d: decompress (default: compress)\n");
       fprintf(stderr, "        -b: backwards compression or decompression\n");
