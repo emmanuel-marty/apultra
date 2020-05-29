@@ -49,7 +49,7 @@ extern "C" {
 #define VISITED_FLAG 0x8000000000000000ULL
 #define EXCL_VISITED_MASK  0x7fffffffffffffffULL
 
-#define NMATCHES_PER_ARRIVAL 30
+#define NMATCHES_PER_ARRIVAL 40
 #define NMATCHES_PER_ARRIVAL_SMALL 9
 
 #define NMATCHES_PER_INDEX 64
@@ -74,11 +74,11 @@ typedef struct {
    int cost;
 
    unsigned int from_pos:21;
-   int from_slot:6;
+   int from_slot:7;
    unsigned int follows_literal:1;
-   unsigned int short_offset:4;
 
-   unsigned int rep_offset;
+   unsigned int rep_offset:21;
+   unsigned int short_offset:4;
    unsigned int rep_pos:21;
    unsigned int match_len:11;
 
@@ -128,6 +128,8 @@ typedef struct _apultra_compressor {
    unsigned char *match1;
    apultra_final_match *best_match;
    apultra_arrival *arrival;
+   int *first_offset_for_byte;
+   int *next_offset_for_pos;
    int flags;
    int block_size;
    apultra_stats stats;
