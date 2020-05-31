@@ -6,7 +6,7 @@
 ;  and optimized by Jaime Tejedor Gomez (Metalbrain) and Antonio Villena.
 ;
 ;  This is a new "implicit state" decompressor heavily optimized for speed by spke.
-;  (It is 14 bytes shorter and 17% faster than the previously fastest
+;  (It is 17 bytes shorter and 17% faster than the previously fastest
 ;  247b decompressor by Metalbrain and Antonio Villena.)
 ;
 ;  ver.00 by spke (21/08/2018-01/09/2018, 244 bytes, an edit of the existing 247b decompressor);
