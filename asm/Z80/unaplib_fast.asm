@@ -288,7 +288,9 @@ LWM1:			; LWM = 1
 			push hl
 			push iy : pop hl
 	IFNDEF BackwardDecompression
+			push de : ex de,hl
 			sbc hl,de				; GetGammaCoded always returns NC
+			pop de
 	ELSE
 			add hl,de
 	ENDIF
