@@ -250,8 +250,6 @@ static void apultra_insert_forward_match(apultra_compressor *pCompressor, const 
    apultra_arrival *arrival = pCompressor->arrival + ((i - nStartOffset) * nMatchesPerArrival);
    int j;
 
-   if (nDepth >= 10) return;
-
    for (j = 0; j < nMatchesPerArrival && arrival[j].from_slot; j++) {
       int nRepOffset = arrival[j].rep_offset;
 
@@ -280,28 +278,26 @@ static void apultra_insert_forward_match(apultra_compressor *pCompressor, const 
             if (nCurRepLen >= 2) {
                apultra_match *fwd_match = pCompressor->match + ((nRepPos - nStartOffset) << MATCHES_PER_INDEX_SHIFT);
                unsigned short *fwd_depth = pCompressor->match_depth + ((nRepPos - nStartOffset) << MATCHES_PER_INDEX_SHIFT);
-               int exists = 0;
                int r;
 
                for (r = 0; r < NMATCHES_PER_INDEX && fwd_match[r].length >= MIN_MATCH_SIZE; r++) {
                   if (fwd_match[r].offset == nMatchOffset && (fwd_depth[r] & 0x7fff) == 0) {
-                     exists = 1;
-
                      if ((int)fwd_match[r].length < nCurRepLen) {
                         fwd_match[r].length = nCurRepLen;
                         fwd_depth[r] = 0;
-                        apultra_insert_forward_match(pCompressor, pInWindow, nRepPos, nMatchOffset, nStartOffset, nEndOffset, nMatchesPerArrival, nDepth + 1);
                      }
+                     r = NMATCHES_PER_INDEX;
                      break;
                   }
                }
 
-               if (!exists && r < NMATCHES_PER_INDEX) {
+               if (r < NMATCHES_PER_INDEX) {
                   fwd_match[r].offset = nMatchOffset;
                   fwd_match[r].length = nCurRepLen;
                   fwd_depth[r] = 0;
 
-                  apultra_insert_forward_match(pCompressor, pInWindow, nRepPos, nMatchOffset, nStartOffset, nEndOffset, nMatchesPerArrival, nDepth + 1);
+                  if (nDepth < 9)
+                     apultra_insert_forward_match(pCompressor, pInWindow, nRepPos, nMatchOffset, nStartOffset, nEndOffset, nMatchesPerArrival, nDepth + 1);
                }
             }
          }
@@ -341,17 +337,17 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
       
       unsigned char *match1 = pCompressor->match1 + (i - nStartOffset);
       int nShortOffset;
-      int nMatchLen;
+      int nShortLen;
       int nLiteralCost;
 
       if ((pInWindow[i] != 0 && (*match1) == 0) || (i == nStartOffset && (nBlockFlags & 1))) {
          nShortOffset = 0;
-         nMatchLen = 0;
+         nShortLen = 0;
          nLiteralCost = 9 /* literal bit + literal byte */;
       }
       else {
          nShortOffset = (pInWindow[i] == 0) ? 0 : (*match1);
-         nMatchLen = 1;
+         nShortLen = 1;
          nLiteralCost = 4 + TOKEN_SIZE_4BIT_MATCH /* command and offset cost; no length cost */;
       }
 
@@ -405,7 +401,7 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
                         pDestArrival->from_slot = j + 1;
                         pDestArrival->follows_literal = 1;
                         pDestArrival->short_offset = nShortOffset;
-                        pDestArrival->match_len = nMatchLen;
+                        pDestArrival->match_len = nShortLen;
                         pDestArrival->score = nScore;
                         pDestArrival->rep_offset = cur_arrival[j].rep_offset;
                         pDestArrival->rep_pos = cur_arrival[j].rep_pos;
