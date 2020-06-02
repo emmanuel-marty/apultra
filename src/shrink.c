@@ -735,10 +735,11 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
  * @param nStartOffset current offset in input window (typically the number of previously compressed bytes)
  * @param nEndOffset offset to end finding matches at (typically the size of the total input window in bytes
  * @param nCurRepMatchOffset starting rep offset for this block
+ * @param nBlockFlags bit 0: 1 for first block, 0 otherwise; bit 1: 1 for last block, 0 otherwise
  *
  * @return non-zero if the number of tokens was reduced, 0 if it wasn't
  */
-static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsigned char *pInWindow, apultra_final_match *pBestMatch, const int nStartOffset, const int nEndOffset, const int *nCurRepMatchOffset) {
+static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsigned char *pInWindow, apultra_final_match *pBestMatch, const int nStartOffset, const int nEndOffset, const int *nCurRepMatchOffset, const int nBlockFlags) {
    int i;
    int nNumLiterals = 0;
    int nRepMatchOffset = *nCurRepMatchOffset;
@@ -747,7 +748,7 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
    int nLastMatchLen = 0;
    const unsigned char *match1 = pCompressor->match1 - nStartOffset;
 
-   for (i = nStartOffset; i < nEndOffset; ) {
+   for (i = nStartOffset + ((nBlockFlags & 1) ? 1 : 0); i < nEndOffset; ) {
       apultra_final_match *pMatch = pBestMatch + i;
 
       if (pMatch->length <= 1 &&
@@ -1358,7 +1359,7 @@ static int apultra_optimize_and_write_block(apultra_compressor *pCompressor, con
    int nDidReduce;
    int nPasses = 0;
    do {
-      nDidReduce = apultra_reduce_commands(pCompressor, pInWindow, pCompressor->best_match - nPreviousBlockSize, nPreviousBlockSize, nPreviousBlockSize + nInDataSize, nCurRepMatchOffset);
+      nDidReduce = apultra_reduce_commands(pCompressor, pInWindow, pCompressor->best_match - nPreviousBlockSize, nPreviousBlockSize, nPreviousBlockSize + nInDataSize, nCurRepMatchOffset, nBlockFlags);
       nPasses++;
    } while (nDidReduce && nPasses < 20);
 
@@ -1565,9 +1566,9 @@ size_t apultra_get_max_compressed_size(size_t nInputSize) {
  * @param nInputSize input(source) size in bytes
  * @param nMaxOutBufferSize maximum capacity of compression buffer
  * @param nFlags compression flags (set to 0)
+ * @param nMaxWindowSize maximum window size to use (0 for default)
  * @param progress progress function, called after compressing each block, or NULL for none
  * @param pStats pointer to compression stats that are filled if this function is successful, or NULL
- * @param nMaxWindowSize maximum window size to use (0 for default)
  *
  * @return actual compressed size, or -1 for error
  */

@@ -152,9 +152,9 @@ size_t apultra_get_max_compressed_size(size_t nInputSize);
  * @param nInputSize input(source) size in bytes
  * @param nMaxOutBufferSize maximum capacity of compression buffer
  * @param nFlags compression flags (set to 0)
+ * @param nMaxWindowSize maximum window size to use (0 for default)
  * @param progress progress function, called after compressing each block, or NULL for none
  * @param pStats pointer to compression stats that are filled if this function is successful, or NULL
- * @param nMaxWindowSize maximum window size to use (0 for default)
  *
  * @return actual compressed size, or -1 for error
  */
