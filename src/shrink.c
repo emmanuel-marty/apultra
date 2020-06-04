@@ -433,8 +433,9 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
          const int nOrigMatchOffset = match[m].offset;
          const unsigned int nOrigMatchDepth = match_depth[m] & 0x7fff;
          const int nScorePenalty = 3 + ((match_depth[m] & 0x8000) >> 15);
+         unsigned int d;
 
-         for (unsigned int d = 0; d <= nOrigMatchDepth; d += (nOrigMatchDepth ? nOrigMatchDepth : 1)) {
+         for (d = 0; d <= nOrigMatchDepth; d += (nOrigMatchDepth ? nOrigMatchDepth : 1)) {
             int nStartingMatchLen, nJumpMatchLen, k;
             int nMaxRepLen[NMATCHES_PER_ARRIVAL];
             int nMinMatchLen[NMATCHES_PER_ARRIVAL];
