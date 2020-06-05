@@ -1,12 +1,12 @@
 ;
-;  Speed-optimized ApLib decompressor by spke (ver.05.1 01/06/2020, 228 bytes)
+;  Speed-optimized ApLib decompressor by spke & uniabis (ver.06 01-05/06/2020, 234 bytes)
 ;
 ;  The original Z80 decompressors for ApLib were written by Dan Weiss (Dwedit),
 ;  then tweaked by Francisco Javier Pena Pareja (utopian),
 ;  and optimized by Jaime Tejedor Gomez (Metalbrain) and Antonio Villena.
 ;
 ;  This is a new "implicit state" decompressor heavily optimized for speed by spke.
-;  (It is 19 bytes shorter and 17% faster than the previously fastest
+;  (It is 13 bytes shorter and 18% faster than the previously fastest
 ;  247b decompressor by Metalbrain and Antonio Villena.)
 ;
 ;  ver.00 by spke (21/08/2018-01/09/2018, 244 bytes, an edit of the existing 247b decompressor);
@@ -14,8 +14,8 @@
 ;  ver.02 by spke (06/08/2019, +1% speed);
 ;  ver.03 by spke (27/08/2019, 236(+2) bytes, +1% speed using partly expanded LDIR);
 ;  ver.04 by spke (spring 2020, added full revision history and support for long offsets)
-;  ver.05 by spke & uniabis (17-31/05/2020, 230(-6) bytes, +3% speed, added support for backward compression)
-;  ver.05.1 by uniabis (01/06/2020, 228(-2) bytes, +0.1% speed, added support for HD64180 optionally)
+;  ver.05 by spke & uniabis (17-31/05/2020, 230(-6) bytes, +3% speed, added support for backward compression) <- BROKEN, DO NOT USE
+;  ver.06 by uniabis & spke (01-05/06/2020, 234(+4) bytes, +1% speed, added support for HD64180)
 ;
 ;  The data must be compressed using any compressor for ApLib capable of generating raw data.
 ;  At present, two best available compressors are:
@@ -50,7 +50,6 @@
 ;  call DecompressApLib
 ;
 ;  The decompressor modifies AF, AF', BC, DE, HL, IX.
-;  (However, note that the option "AllowSelfmodifyingCode" removes the dependency on IX.)
 ;
 ;  Of course, ApLib compression algorithms are (c) 1998-2014 Joergen Ibsen,
 ;  see http://www.ibsensoftware.com/ for more information
@@ -74,7 +73,7 @@
 ;  3. This notice may not be removed or altered from any source distribution.
 
 ;	DEFINE SupportLongOffsets				; +4 bytes for long offset support. slows decompression down by 1%, but may be needed to decompress files >=32K
-;	DEFINE BackwardDecompression				; decompress data compressed backwards, -9 bytes, speeds decompression up by 2%
+;	DEFINE BackwardDecompression				; decompress data compressed backwards, -10 bytes, speeds decompression up by 3%
 ;	DEFINE HD64180						; -2 bytes for HD64180/Z180 support, slows decompression down by 1%
 
 	IFNDEF BackwardDecompression
@@ -107,6 +106,10 @@
 
 	ENDIF
 
+		MACRO RELOAD_A
+		ld a,(hl) : NEXT_HL : rla
+		ENDM
+
 @Decompress:		COPY_1 : scf
 
 ;==================================================================================================================
@@ -115,8 +118,7 @@
 
 LWM0:			;LWM = 0 (LWM stands for "Last Was Match"; a flag that we did not have a match)
 
-.ReloadByteC0		ld a,(hl) : NEXT_HL : rla
-			jr c,.Check2ndBit
+.ReloadByteC0		RELOAD_A : jr c,.Check2ndBit
 
 ;
 ;  case "0"+BYTE: copy a single literal
@@ -127,8 +129,8 @@ LWM0:			;LWM = 0 (LWM stands for "Last Was Match"; a flag that we did not have a
 ;  main decompressor loop
 
 .MainLoop:		add a : jr nc,.CASE0 : jr z,.ReloadByteC0	; "0"+BYTE = copy literal
-.Check2ndBit		add a : call z,ReloadByte : jr nc,.CASE10	; "10"+gamma(offset/256)+BYTE+gamma(length) = the main matching mechanism
-			add a : call z,ReloadByte : jp c,LWM1.CASE111	; "110"+[oooooool] = matched 2-3 bytes with a small offset
+.Check2ndBit		add a : jr nc,.CASE10 : jr z,.ReloadByteC1	; "10"+gamma(offset/256)+BYTE+gamma(length) = the main matching mechanism
+.Check3rdBit		add a : call z,ReloadByte : jp c,LWM1.CASE111	; "110"+[oooooool] = matched 2-3 bytes with a small offset
 
 ;
 ;  branch "110"+[oooooool]: copy two or three bytes (bit "l") with the offset -1..-127 (bits "ooooooo"), or stop
@@ -139,12 +141,11 @@ LWM0:			;LWM = 0 (LWM stands for "Last Was Match"; a flag that we did not have a
 			NEXT_HL
 			ld b,0
 
-		IFNDEF HD64180
+	IFNDEF HD64180
 			ld ixl,c : ld ixh,b				; save offset for future LWMs
-		ELSE
+	ELSE
 			push bc : pop ix
-		ENDIF
-
+	ENDIF
 
 			push hl						; save src
 			ld h,d : ld l,e					; HL = dest
@@ -168,6 +169,8 @@ LWM0:			;LWM = 0 (LWM stands for "Last Was Match"; a flag that we did not have a
 			COPY_1 : COPY_1 : COPY_1
 			jr .PreMainLoop
 
+.ReloadByteC1		RELOAD_A : jr c,.Check3rdBit
+
 ;
 ;  branch "10"+gamma(offset/256)+BYTE+gamma(length): the main matching mechanism
 
@@ -188,11 +191,11 @@ LWM0:			;LWM = 0 (LWM stands for "Last Was Match"; a flag that we did not have a
 
 .AfterLWM		dec c : ld b,c : ld c,(hl) : NEXT_HL	; BC = offset
 
-		IFNDEF HD64180
+	IFNDEF HD64180
 			ld ixl,c : ld ixh,b : push bc
-		ELSE
+	ELSE
 			push bc : push bc : pop ix
-		ENDIF
+	ENDIF
 
 			call GetGammaCoded			; BC = len*
 
@@ -229,9 +232,10 @@ LWM0:			;LWM = 0 (LWM stands for "Last Was Match"; a flag that we did not have a
 			ld a,d : sbc h
 			ld h,a : exa
 	ELSE
-			add hl,de : exa
+			exa
+.CopyMatchLDH		add hl,de
 	ENDIF
-.CopyMatchLDH		COPY_1 : COPY_BC
+			COPY_1 : COPY_BC
 .PreMainLoop		pop hl					; recover src
 
 ;==================================================================================================================
@@ -244,8 +248,8 @@ LWM1:			; LWM = 1
 ;  main decompressor loop
 
 .MainLoop:		add a : jr nc,LWM0.CASE0 : jr z,.ReloadByteC0		; "0"+BYTE = copy literal
-.Check2ndBit		add a : call z,ReloadByte : jr nc,.CASE10		; "10"+gamma(offset/256)+BYTE+gamma(length) = the main matching mechanism
-			add a : call z,ReloadByte : jr nc,LWM0.CASE110		; "110"+[oooooool] = matched 2-3 bytes with a small offset
+.Check2ndBit		add a : jr nc,.CASE10 : jr z,.ReloadByteC1		; "10"+gamma(offset/256)+BYTE+gamma(length) = the main matching mechanism
+.Check3rdBit		add a : call z,ReloadByte : jr nc,LWM0.CASE110		; "110"+[oooooool] = matched 2-3 bytes with a small offset
 
 ;
 ;  case "111"+"oooo": copy a byte with offset -1..-15, or write zero to dest
@@ -263,15 +267,16 @@ LWM1:			; LWM = 1
 	ELSE
 			add hl,bc
 	ENDIF
-			ld b,(hl)
+			ld c,(hl)
 			pop hl
 
-.WriteZero		ld (hl),b : NEXT_HL
+.WriteZero		ld (hl),c : NEXT_HL
 			ex de,hl : jp LWM0.MainLoop		; 10+4*(4+10+8)+4+7 + 11+15+7+10 + 7+4+6+10 = 179t
 
-.ReloadByteC0		ld a,(hl) : NEXT_HL : rla
-			jp nc,LWM0.CASE0
+.ReloadByteC0		RELOAD_A : jp nc,LWM0.CASE0
 			jr .Check2ndBit
+
+.ReloadByteC1		RELOAD_A : jr c,.Check3rdBit
 
 ;
 ;  branch "10"+gamma(offset/256)+BYTE+gamma(length): the main matching mechanism
@@ -289,20 +294,20 @@ LWM1:			; LWM = 1
 			;
 			; so, the idea here is to use the fact that GetGammaCoded returns (offset/256)+2,
 			; and to split the first condition by noticing that C-1 can never be zero
-			dec c : jp LWM0.AfterLWM
+			dec c : jr LWM0.AfterLWM
 
 ;
 ;  the re-use of the previous offset (LWM magic)
 
 .KickInLWM:		; "and a new gamma code for length"
 			call GetGammaCoded			; BC = len
-			push ix : ex (sp),hl
+
 	IFNDEF BackwardDecompression
-			exa
-			jp LWM0.CopyMatch
+			push ix : ex (sp),hl : exa
+			jr LWM0.CopyMatch
 	ELSE
-			add hl,de
-			jp LWM0.CopyMatchLDH
+			push ix : ex (sp),hl
+			jr LWM0.CopyMatchLDH
 	ENDIF
 
 ;==================================================================================================================
@@ -317,20 +322,18 @@ LWM1:			; LWM = 1
 ;  (technically, this is a 2-based variation of Exp-Golomb-1)
 
 GetGammaCoded:		ld bc,1
-ReadGamma		add a : jr z,ReloadByteRG1
+.ReadGamma		add a : jr z,.ReloadByteRG1
 			rl c : rl b
 			add a : ret nc				; NB: flag NC immediately says we do not need to reload our byte...
-			jr nz,ReadGamma				; ...even better, flag NZ then automatically means flag C :)
+			jr nz,.ReadGamma			; ...even better, flag NZ then automatically means flag C :)
 
-ReloadByteRG2		ld a,(hl) : NEXT_HL : rla
-			ret nc : jr ReadGamma
+.ReloadByteRG2		RELOAD_A : ret nc : jr .ReadGamma
 
-ReloadByteRG1		ld a,(hl) : NEXT_HL : rla
-			rl c : rl b
-			add a : ret nc : jr ReadGamma
+.ReloadByteRG1		RELOAD_A : rl c : rl b
+			add a : ret nc : jr .ReadGamma
 
 ;
 ;  pretty usual getbit for mixed datastreams
 
-ReloadByte:		ld a,(hl) : NEXT_HL : rla : ret
+ReloadByte:		RELOAD_A : ret
 
