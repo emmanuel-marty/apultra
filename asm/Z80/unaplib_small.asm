@@ -1,5 +1,5 @@
 ;
-;  Size-optimized ApLib decompressor by spke (ver.02 05-07/01/2020, 140 bytes)
+;  Size-optimized ApLib decompressor by spke (ver.03.1 01/06/2020, 139 bytes)
 ;
 ;  The original Z80 decompressor for ApLib was written by Dan Weiss (Dwedit),
 ;  then tweaked by Francisco Javier Pena Pareja (utopian),
@@ -13,7 +13,8 @@
 ;  ver.02 by spke (05-07/01/2020, added full revision history, support for long offsets
 ;                  and an option to use self-modifying code instead of IY)
 ;  ver.03 by spke (18-29/05/2020, +0.5% speed, added support for backward compression)
-;
+;  ver.03.1 by uniabis (01/06/2020, 139(-1) bytes, +1% speed, added support for HD64180)
+;;
 ;  The data must be compressed using any compressor for ApLib capable of generating raw data.
 ;  At present, two best available compressors are:
 ;
@@ -46,8 +47,8 @@
 ;  ld de,LastByteOfMemoryForDecompressedData
 ;  call DecompressApLib
 ;
-;  The decompressor modifies AF, AF', BC, DE, HL, IXH, IY.
-;  (However, note that the option "AllowSelfmodifyingCode" removes the dependency on IY.)
+;  The decompressor modifies AF, AF', BC, DE, HL, IX.
+;  (However, note that the option "AllowSelfmodifyingCode" removes the dependency on IX.)
 ;
 ;  Of course, ApLib compression algorithms are (c) 1998-2014 Joergen Ibsen,
 ;  see http://www.ibsensoftware.com/ for more information
@@ -71,7 +72,7 @@
 ;  3. This notice may not be removed or altered from any source distribution.
 
 ;	DEFINE FasterGetBit					; 16% speed-up at the cost of extra 4 bytes
-;	DEFINE AllowSelfmodifyingCode				; 1% speed-up at the cost of an extra byte (avoids using IY)
+;	DEFINE AllowSelfmodifyingCode				; 1% speed-up at the cost of an extra byte (avoids using IX)
 ;	DEFINE SupportLongOffsets				; +4 bytes for long offset support. slows decompression down by 1%, but may be needed to decompress files >=32K
 ;	DEFINE BackwardDecompression				; decompress data compressed backwards, -5 bytes, speeds decompression up by 3%
 
@@ -122,7 +123,7 @@
 ;  case "0"+BYTE: copy a single literal
 
 CASE0:			COPY_1					; first byte is always copied as literal
-ResetLWM:		ld ixh,1				; LWM = 0 (LWM stands for "Last Was Match"; a flag that we did not have a match)
+ResetLWM:		ld b,255				; LWM = 0 (LWM stands for "Last Was Match"; a flag that we did not have a match)
 
 ;
 ;  main decompressor loop
@@ -174,7 +175,10 @@ CASE110:		; "use 7 bit offset, length = 2 or 3"
 ;
 ;  branch "10"+gamma(offset/256)+BYTE+gamma(length): the main matching mechanism
 
-CASE10:			; "use a gamma code * 256 for offset, another gamma code for length"
+CASE10:			exa
+			ld a,b
+			exa
+			; "use a gamma code * 256 for offset, another gamma code for length"
 			call GetGammaCoded
 
 			; the original decompressor contains
@@ -187,9 +191,11 @@ CASE10:			; "use a gamma code * 256 for offset, another gamma code for length"
 			;
 			; so, the idea here is to use the fact that GetGammaCoded returns (offset/256)+2,
 			; and to split the first condition by noticing that C-1 can never be zero
-			dec ixh : jr nz,NoLWM
-			dec c
-NoLWM			; "if gamma code is 2, use old r0 offset"
+			exa
+			add c
+			ld c,a
+			exa
+			; "if gamma code is 2, use old r0 offset"
 			dec c : jr z,KickInLWM
 			dec c
 			ld b,c : ld c,(hl) : NEXT_HL		; BC = offset
@@ -214,7 +220,7 @@ NoLWM			; "if gamma code is 2, use old r0 offset"
 
 SaveLWMOffset:
 	IFNDEF	AllowSelfmodifyingCode
-			push hl : pop iy			; save offset for future LWMs
+			push hl : pop ix			; save offset for future LWMs
 	ELSE
 			ld (KickInLWM.PrevOffset),hl
 	ENDIF
@@ -231,7 +237,6 @@ CopyMatch:		; this assumes that BC = len, DE = dest, HL = offset
 
 			COPY_BC
 			pop hl					; recover src
-			ld ixh,b				; LWM = 0
 			jr MainLoop
 
 ;
@@ -239,15 +244,14 @@ CopyMatch:		; this assumes that BC = len, DE = dest, HL = offset
 
 KickInLWM:		; "and a new gamma code for length"
 			call GetGammaCoded			; BC = len
-			push hl
 	IFNDEF	AllowSelfmodifyingCode
-			push iy ;: pop hl			; DE = dest, HL = prev offset
-			jr CopyMatch-1				; this jumps into POP HL of the POP IY
+			push ix : ex (sp),hl
 	ELSE
+			push hl
 .PrevOffset		EQU $+1
 			ld hl,0
-			jr CopyMatch
 	ENDIF
+			jr CopyMatch
 
 ;
 ;  interlaced gamma code reader
