@@ -1,20 +1,20 @@
 ;
-;  Size-optimized ApLib decompressor by spke (ver.03.1 01/06/2020, 139 bytes)
+;  Size-optimized ApLib decompressor by spke & uniabis (ver.04 01-07/06/2020, 139 bytes)
 ;
 ;  The original Z80 decompressor for ApLib was written by Dan Weiss (Dwedit),
 ;  then tweaked by Francisco Javier Pena Pareja (utopian),
 ;  and optimized by Jaime Tejedor Gomez (Metalbrain).
 ;
 ;  This version was heavily re-optimized for size by spke.
-;  (It is 16 bytes shorter and 21% faster than the 156b version by Metalbrain.)
+;  (It is 17 bytes shorter and 22% faster than the 156b version by Metalbrain.)
 ;
 ;  ver.00 by spke (21/08/2018-01/09/2018, 141 bytes);
-;  ver.01 by spke (spring 2019, 140(-1) byte, slightly faster);
+;  ver.01 by spke (spring 2019, 140(-1) bytes, slightly faster);
 ;  ver.02 by spke (05-07/01/2020, added full revision history, support for long offsets
 ;                  and an option to use self-modifying code instead of IY)
 ;  ver.03 by spke (18-29/05/2020, +0.5% speed, added support for backward compression)
-;  ver.03.1 by uniabis (01/06/2020, 139(-1) bytes, +1% speed, added support for HD64180)
-;;
+;  ver.04 by uniabis (01-07/06/2020, 139(-1) bytes, +1% speed, added support for HD64180)
+;
 ;  The data must be compressed using any compressor for ApLib capable of generating raw data.
 ;  At present, two best available compressors are:
 ;
@@ -48,7 +48,6 @@
 ;  call DecompressApLib
 ;
 ;  The decompressor modifies AF, AF', BC, DE, HL, IX.
-;  (However, note that the option "AllowSelfmodifyingCode" removes the dependency on IX.)
 ;
 ;  Of course, ApLib compression algorithms are (c) 1998-2014 Joergen Ibsen,
 ;  see http://www.ibsensoftware.com/ for more information
@@ -72,7 +71,6 @@
 ;  3. This notice may not be removed or altered from any source distribution.
 
 ;	DEFINE FasterGetBit					; 16% speed-up at the cost of extra 4 bytes
-;	DEFINE AllowSelfmodifyingCode				; 1% speed-up at the cost of an extra byte (avoids using IX)
 ;	DEFINE SupportLongOffsets				; +4 bytes for long offset support. slows decompression down by 1%, but may be needed to decompress files >=32K
 ;	DEFINE BackwardDecompression				; decompress data compressed backwards, -5 bytes, speeds decompression up by 3%
 
@@ -123,7 +121,7 @@
 ;  case "0"+BYTE: copy a single literal
 
 CASE0:			COPY_1					; first byte is always copied as literal
-ResetLWM:		ld b,255				; LWM = 0 (LWM stands for "Last Was Match"; a flag that we did not have a match)
+ResetLWM:		ld b,-1					; LWM = 0 (LWM stands for "Last Was Match"; a flag that we did not have a match)
 
 ;
 ;  main decompressor loop
@@ -143,17 +141,13 @@ ReadFourBits		GET_BIT					; read short offset (4 bits)
 			ex de,hl : jr z,WriteZero		; zero offset means "write zero" (NB: B is zero here)
 
 			; "write a previous byte (1-15 away from dest)"
+			push hl					; BC = offset, DE = src, HL = dest
 	IFNDEF BackwardDecompression
-			push hl					; BC = offset, DE = src, HL = dest
 			sbc hl,bc				; HL = dest-offset (SBC works because branching above ensured NC)
-			ld c,(hl)
-			pop hl
 	ELSE
-			push hl					; BC = offset, DE = src, HL = dest
 			add hl,bc				; HL = dest-offset (SBC works because branching above ensured NC)
-			ld c,(hl)
-			pop hl
 	ENDIF
+			ld c,(hl) : pop hl
 
 WriteZero		ld (hl),c : NEXT_HL
 			ex de,hl : jr ResetLWM			; write one byte, reset LWM
@@ -175,9 +169,9 @@ CASE110:		; "use 7 bit offset, length = 2 or 3"
 ;
 ;  branch "10"+gamma(offset/256)+BYTE+gamma(length): the main matching mechanism
 
-CASE10:			exa
-			ld a,b
-			exa
+CASE10:			; save state of LWM into A'
+			exa : ld a,b : exa
+
 			; "use a gamma code * 256 for offset, another gamma code for length"
 			call GetGammaCoded
 
@@ -191,10 +185,8 @@ CASE10:			exa
 			;
 			; so, the idea here is to use the fact that GetGammaCoded returns (offset/256)+2,
 			; and to split the first condition by noticing that C-1 can never be zero
-			exa
-			add c
-			ld c,a
-			exa
+			exa : add c : ld c,a : exa
+
 			; "if gamma code is 2, use old r0 offset"
 			dec c : jr z,KickInLWM
 			dec c
@@ -219,11 +211,7 @@ CASE10:			exa
 .Add0			exa
 
 SaveLWMOffset:
-	IFNDEF	AllowSelfmodifyingCode
 			push hl : pop ix			; save offset for future LWMs
-	ELSE
-			ld (KickInLWM.PrevOffset),hl
-	ENDIF
 
 CopyMatch:		; this assumes that BC = len, DE = dest, HL = offset
 			; and also that (SP) = src, while having NC
@@ -244,13 +232,7 @@ CopyMatch:		; this assumes that BC = len, DE = dest, HL = offset
 
 KickInLWM:		; "and a new gamma code for length"
 			call GetGammaCoded			; BC = len
-	IFNDEF	AllowSelfmodifyingCode
-			push ix : ex (sp),hl
-	ELSE
-			push hl
-.PrevOffset		EQU $+1
-			ld hl,0
-	ENDIF
+			push ix : ex (sp),hl			; DE = dest, HL = prev offset
 			jr CopyMatch
 
 ;
