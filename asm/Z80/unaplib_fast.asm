@@ -1,12 +1,12 @@
 ;
-;  Speed-optimized ApLib decompressor by spke & uniabis (ver.06 01-05/06/2020, 234 bytes)
+;  Speed-optimized ApLib decompressor by spke & uniabis (ver.06 01-05/06/2020, 235 bytes)
 ;
 ;  The original Z80 decompressors for ApLib were written by Dan Weiss (Dwedit),
 ;  then tweaked by Francisco Javier Pena Pareja (utopian),
 ;  and optimized by Jaime Tejedor Gomez (Metalbrain) and Antonio Villena.
 ;
 ;  This is a new "implicit state" decompressor heavily optimized for speed by spke.
-;  (It is 13 bytes shorter and 18% faster than the previously fastest
+;  (It is 12 bytes shorter and 18% faster than the previously fastest
 ;  247b decompressor by Metalbrain and Antonio Villena.)
 ;
 ;  ver.00 by spke (21/08/2018-01/09/2018, 244 bytes, an edit of the existing 247b decompressor);
@@ -14,8 +14,8 @@
 ;  ver.02 by spke (06/08/2019, +1% speed);
 ;  ver.03 by spke (27/08/2019, 236(+2) bytes, +1% speed using partly expanded LDIR);
 ;  ver.04 by spke (spring 2020, added full revision history and support for long offsets)
-;  ver.05 by spke & uniabis (17-31/05/2020, 230(-6) bytes, +3% speed, added support for backward compression) <- BROKEN, DO NOT USE
-;  ver.06 by uniabis & spke (01-05/06/2020, 234(+4) bytes, +1% speed, added support for HD64180)
+;  ver.05 by spke (17-31/05/2020, 230(-6) bytes, +3% speed, added support for backward compression) <- BROKEN, DO NOT USE
+;  ver.06 by uniabis & spke (01-07/06/2020, 235(+5) bytes, +1% speed, added support for HD64180)
 ;
 ;  The data must be compressed using any compressor for ApLib capable of generating raw data.
 ;  At present, two best available compressors are:
@@ -300,7 +300,7 @@ LWM1:			; LWM = 1
 ;  the re-use of the previous offset (LWM magic)
 
 .KickInLWM:		; "and a new gamma code for length"
-			call GetGammaCoded			; BC = len
+			inc c : call GetGammaCoded.ReadGamma		; BC = len
 
 	IFNDEF BackwardDecompression
 			push ix : ex (sp),hl : exa
