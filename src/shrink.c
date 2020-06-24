@@ -1177,34 +1177,36 @@ static int apultra_write_block(apultra_compressor *pCompressor, apultra_final_ma
             if (nOutOffset < 0) return -1;
          }
 
-         if (nMatchOffset < pCompressor->stats.min_offset || pCompressor->stats.min_offset == -1)
-            pCompressor->stats.min_offset = nMatchOffset;
-         if (nMatchOffset > pCompressor->stats.max_offset)
-            pCompressor->stats.max_offset = nMatchOffset;
-         pCompressor->stats.total_offsets += (long long)nMatchOffset;
+         if (nTokenOffsetMode != 2) {
+            if (nMatchOffset < pCompressor->stats.min_offset || pCompressor->stats.min_offset == -1)
+               pCompressor->stats.min_offset = nMatchOffset;
+            if (nMatchOffset > pCompressor->stats.max_offset)
+               pCompressor->stats.max_offset = nMatchOffset;
+            pCompressor->stats.total_offsets += (long long)nMatchOffset;
 
-         if (nMatchLen < pCompressor->stats.min_match_len || pCompressor->stats.min_match_len == -1)
-            pCompressor->stats.min_match_len = nMatchLen;
-         if (nMatchLen > pCompressor->stats.max_match_len)
-            pCompressor->stats.max_match_len = nMatchLen;
-         pCompressor->stats.total_match_lens += nMatchLen;
-         pCompressor->stats.match_divisor++;
+            if (nMatchLen < pCompressor->stats.min_match_len || pCompressor->stats.min_match_len == -1)
+               pCompressor->stats.min_match_len = nMatchLen;
+            if (nMatchLen > pCompressor->stats.max_match_len)
+               pCompressor->stats.max_match_len = nMatchLen;
+            pCompressor->stats.total_match_lens += nMatchLen;
+            pCompressor->stats.match_divisor++;
 
-         if (nMatchOffset == 1) {
-            if (nMatchLen < pCompressor->stats.min_rle1_len || pCompressor->stats.min_rle1_len == -1)
-               pCompressor->stats.min_rle1_len = nMatchLen;
-            if (nMatchLen > pCompressor->stats.max_rle1_len)
-               pCompressor->stats.max_rle1_len = nMatchLen;
-            pCompressor->stats.total_rle1_lens += nMatchLen;
-            pCompressor->stats.rle1_divisor++;
-         }
-         else if (nMatchOffset == 2) {
-            if (nMatchLen < pCompressor->stats.min_rle2_len || pCompressor->stats.min_rle2_len == -1)
-               pCompressor->stats.min_rle2_len = nMatchLen;
-            if (nMatchLen > pCompressor->stats.max_rle2_len)
-               pCompressor->stats.max_rle2_len = nMatchLen;
-            pCompressor->stats.total_rle2_lens += nMatchLen;
-            pCompressor->stats.rle2_divisor++;
+            if (nMatchOffset == 1) {
+               if (nMatchLen < pCompressor->stats.min_rle1_len || pCompressor->stats.min_rle1_len == -1)
+                  pCompressor->stats.min_rle1_len = nMatchLen;
+               if (nMatchLen > pCompressor->stats.max_rle1_len)
+                  pCompressor->stats.max_rle1_len = nMatchLen;
+               pCompressor->stats.total_rle1_lens += nMatchLen;
+               pCompressor->stats.rle1_divisor++;
+            }
+            else if (nMatchOffset == 2) {
+               if (nMatchLen < pCompressor->stats.min_rle2_len || pCompressor->stats.min_rle2_len == -1)
+                  pCompressor->stats.min_rle2_len = nMatchLen;
+               if (nMatchLen > pCompressor->stats.max_rle2_len)
+                  pCompressor->stats.max_rle2_len = nMatchLen;
+               pCompressor->stats.total_rle2_lens += nMatchLen;
+               pCompressor->stats.rle2_divisor++;
+            }
          }
 
          i += nMatchLen;
@@ -1238,6 +1240,7 @@ static int apultra_write_block(apultra_compressor *pCompressor, apultra_final_ma
       if (nOutOffset < 0 || nOutOffset >= nMaxOutDataSize)
          return -1;
       pOutData[nOutOffset++] = 0x00;   /* Offset: EOD */
+      pCompressor->stats.num_7bit_matches++;
       pCompressor->stats.commands_divisor++;
 
       int nCurSafeDist = (i - nStartOffset) - nOutOffset;
@@ -1265,34 +1268,55 @@ static int apultra_write_block(apultra_compressor *pCompressor, apultra_final_ma
  *
  * @return size of compressed data in output buffer, or -1 if the data is uncompressible
  */
-static int apultra_write_raw_uncompressed_block_v3(apultra_compressor *pCompressor, const unsigned char *pInWindow, const int nStartOffset, const int nEndOffset, unsigned char *pOutData, int nOutOffset, const int nMaxOutDataSize, const int nBlockFlags, int *nCurBitsOffset, int *nCurBitMask, int *nFollowsLiteral) {
+static int apultra_write_raw_uncompressed_block(apultra_compressor *pCompressor, const unsigned char *pInWindow, const int nStartOffset, const int nEndOffset, unsigned char *pOutData, int nOutOffset, const int nMaxOutDataSize, const int nBlockFlags, int *nCurBitsOffset, int *nCurBitMask, int *nFollowsLiteral) {
    int nNumLiterals = nEndOffset - nStartOffset;
-   int j;
+   int j = 0;
    int nInOffset = nStartOffset;
 
    int nCommandSize = nNumLiterals /* literal flag bits */ + (nNumLiterals << 3) /* literal bytes */ + TOKEN_SIZE_7BIT_MATCH /* token */ + 8 /* match offset */;
    if ((nOutOffset + ((nCommandSize + 7) >> 3)) > nMaxOutDataSize)
       return -1;
 
-   pCompressor->stats.commands_divisor = 0;
+   memset(&pCompressor->stats, 0, sizeof(pCompressor->stats));
    *nFollowsLiteral = 1;
 
-   for (j = 0; j < nNumLiterals; j++) {
-      nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, 0 /* literal */, nCurBitsOffset, nCurBitMask);
+   if (nBlockFlags & 1) {
+      if (nOutOffset < 0 || nOutOffset >= nMaxOutDataSize)
+         return -1;
       pOutData[nOutOffset++] = pInWindow[nInOffset + j];
+      j++;
+   }
+
+   pCompressor->stats.num_literals += (nNumLiterals - j);
+   pCompressor->stats.commands_divisor += (nNumLiterals - j);
+
+   while (j < nNumLiterals) {
+      nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, 0 /* literal */, nCurBitsOffset, nCurBitMask);
+      if (nOutOffset < 0 || nOutOffset >= nMaxOutDataSize)
+         return -1;
+      pOutData[nOutOffset++] = pInWindow[nInOffset + j];
+
+      j++;
    }
 
    nNumLiterals = 0;
 
-   /* 8 bits offset */
-   for (j = TOKEN_SIZE_7BIT_MATCH - 1; j >= 0; j--)
-      nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, (_token_code[1] & (1 << j)) ? 1 : 0, nCurBitsOffset, nCurBitMask);
+   if (nBlockFlags & 2) {
+      /* 8 bits offset */
+      for (j = TOKEN_SIZE_7BIT_MATCH - 1; j >= 0; j--)
+         nOutOffset = apultra_write_bit(pOutData, nOutOffset, nMaxOutDataSize, (_token_code[1] & (1 << j)) ? 1 : 0, nCurBitsOffset, nCurBitMask);
 
-   if (nOutOffset < 0 || nOutOffset >= nMaxOutDataSize)
-      return -1;
-   pOutData[nOutOffset++] = 0x00;   /* Offset: EOD */
+      if (nOutOffset < 0 || nOutOffset >= nMaxOutDataSize)
+         return -1;
+      pOutData[nOutOffset++] = 0x00;   /* Offset: EOD */
 
-   pCompressor->stats.commands_divisor++;
+      pCompressor->stats.num_7bit_matches++;
+      pCompressor->stats.commands_divisor++;
+
+      int nCurSafeDist = (nEndOffset - nStartOffset) - nOutOffset;
+      if (nCurSafeDist >= 0 && pCompressor->stats.safe_dist < nCurSafeDist)
+         pCompressor->stats.safe_dist = nCurSafeDist;
+   }
 
    return nOutOffset;
 }
@@ -1397,11 +1421,19 @@ static int apultra_optimize_and_write_block(apultra_compressor *pCompressor, con
 
    /* Write compressed block */
 
+   int nTmpBitsOffset = *nCurBitsOffset;
+   int nTmpBitsMask = *nCurBitMask;
+   int nTmpFollowsLiteral = *nCurFollowsLiteral;
+   int nTmpRepMatchOffset = *nCurRepMatchOffset;
+
    nResult = apultra_write_block(pCompressor, pCompressor->best_match - nPreviousBlockSize, pInWindow, nPreviousBlockSize, nPreviousBlockSize + nInDataSize, pOutData, nOutOffset, nMaxOutDataSize, nCurBitsOffset, nCurBitMask, nCurFollowsLiteral, nCurRepMatchOffset, nBlockFlags);
    if (nResult < 0) {
       /* Try to write block as all literals */
-      *nCurRepMatchOffset = 0;
-      nResult = apultra_write_raw_uncompressed_block_v3(pCompressor, pInWindow, nPreviousBlockSize, nPreviousBlockSize + nInDataSize, pOutData, nOutOffset, nMaxOutDataSize, nBlockFlags, nCurBitsOffset, nCurBitMask, nCurFollowsLiteral);
+      *nCurBitsOffset = nTmpBitsOffset;
+      *nCurBitMask = nTmpBitsMask;
+      *nCurFollowsLiteral = nTmpFollowsLiteral;
+      *nCurRepMatchOffset = nTmpRepMatchOffset;
+      nResult = apultra_write_raw_uncompressed_block(pCompressor, pInWindow, nPreviousBlockSize, nPreviousBlockSize + nInDataSize, pOutData, nOutOffset, nMaxOutDataSize, nBlockFlags, nCurBitsOffset, nCurBitMask, nCurFollowsLiteral);
    }
 
    return nResult;
