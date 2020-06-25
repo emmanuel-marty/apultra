@@ -1,4 +1,4 @@
-;  unaplib_b.s - aPLib backward decompressor for 6809 - 163 bytes
+;  unaplib_b.s - aPLib backward decompressor for 6809 - 162 bytes
 ;
 ;  in:  x = last byte of compressed data
 ;       y = last byte of decompression buffer
@@ -92,6 +92,19 @@ apgotbit rts
 
 apbitbuf fcb $00           ; bit queue
 
+apshort  clrb
+         bsr apdibits      ; read 2 offset bits
+         rolb
+         bsr apdibits      ; read 4 offset bits
+         rolb
+         beq apwrzero
+
+         decb              ; we load below without predecrement, adjust here
+         ldb b,y           ; load backreferenced byte from dst+offset
+
+apwrzero stb ,-y
+         bra apaftlit
+
 apgamma2 ldd #$1           ; init to 1 so it gets shifted to 2 below
 apg2loop bsr apgetbit      ; read data bit
          rolb              ; shift into D
@@ -112,17 +125,3 @@ apother  bsr apgetbit      ; read '7+1 match or short literal' bit
          incb              ; len in B will be 2*1+carry:
          rolb              ; shift length, and carry into B
          bra apgotlen      ; go copy match
-
-apshort  clrb
-         bsr apdibits      ; read 2 offset bits
-         rolb
-         bsr apdibits      ; read 4 offset bits
-         rolb
-         beq apwrzero
-
-         decb              ; we load below without predecrement, adjust here
-         ldb b,y           ; load backreferenced byte from dst+offset
-
-apwrzero stb ,-y
-         lbra apaftlit
-
