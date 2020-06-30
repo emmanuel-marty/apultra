@@ -475,7 +475,7 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
                   nMinMatchLen[j++] = 0;
                }
 
-               if (nMatchLen >= LEAVE_ALONE_MATCH_SIZE && i >= nMatchLen)
+               if (nMatchLen >= LEAVE_ALONE_MATCH_SIZE && i >= LEAVE_ALONE_MATCH_SIZE)
                   nStartingMatchLen = nMatchLen;
                else
                   nStartingMatchLen = 2;
