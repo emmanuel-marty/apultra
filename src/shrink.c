@@ -765,17 +765,14 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
          }
       }
 
-      if (pMatch->length >= MIN_MATCH_SIZE) {
-         if (pMatch->length >= 2 &&
-            pMatch->length < 32 && /* Don't waste time considering large matches, they will always win over literals */
+      if (pMatch->length >= 2) {
+         if (pMatch->length < 32 && /* Don't waste time considering large matches, they will always win over literals */
              (i + pMatch->length) < nEndOffset /* Don't consider the last match in the block, we can only reduce a match inbetween other tokens */) {
             int nNextIndex = i + pMatch->length;
-            int nNextLiterals = 0;
             int nNextFollowsLiteral = 0;
             int nCannotEncode = 0;
 
             while (nNextIndex < nEndOffset && pBestMatch[nNextIndex].length < 2) {
-               nNextLiterals++;
                nNextIndex++;
                nNextFollowsLiteral = 1;
             }
@@ -788,7 +785,8 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
                      if ((pBestMatch[nNextIndex].offset < MINMATCH3_OFFSET || pMatch->length >= 3) &&
                         (pBestMatch[nNextIndex].offset < MINMATCH4_OFFSET || pMatch->length >= 4)) {
                         int nMaxLen = 0;
-                        while (nMaxLen < pMatch->length && pInWindow[i - pBestMatch[nNextIndex].offset + nMaxLen] == pInWindow[i - pMatch->offset + nMaxLen])
+                        const unsigned char* pInWindowAtPos = pInWindow + i;
+                        while (nMaxLen < pMatch->length && pInWindowAtPos[nMaxLen - pBestMatch[nNextIndex].offset] == pInWindowAtPos[nMaxLen])
                            nMaxLen++;
 
                         if (nMaxLen >= pMatch->length) {
@@ -846,7 +844,7 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
                   }
                }
 
-               /* This command is a match, is followed by 'nNextLiterals' literals and then by another match. Calculate this command's current cost (excluding 'nNumLiterals' bytes) */
+               /* This command is a match, is potentially followed by literals and then by another match. Calculate this command's current cost (excluding 'nNumLiterals' bytes) */
 
                int nCurCommandSize = nNumLiterals /* literal flag bits */;
                if (pMatch->offset == nRepMatchOffset && nFollowsLiteral) {
@@ -857,19 +855,19 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
                }
 
                /* Calculate the next command's current cost */
-               int nNextCommandSize = nNextLiterals /* literal flag bits */ + (nNextLiterals << 3) /* literal bytes */;
+               int nNextCommandSize;
                if (pBestMatch[nNextIndex].offset == pMatch->offset && nNextFollowsLiteral && pBestMatch[nNextIndex].length >= 2) {
-                  nNextCommandSize += TOKEN_SIZE_LARGE_MATCH + 2 /* apultra_get_gamma2_size(2) */ + apultra_get_match_varlen_size(pBestMatch[nNextIndex].length, pBestMatch[nNextIndex].offset, 1);
+                  nNextCommandSize = TOKEN_SIZE_LARGE_MATCH + 2 /* apultra_get_gamma2_size(2) */ + apultra_get_match_varlen_size(pBestMatch[nNextIndex].length, pBestMatch[nNextIndex].offset, 1);
                }
                else {
-                  nNextCommandSize += apultra_get_offset_varlen_size(pBestMatch[nNextIndex].length, pBestMatch[nNextIndex].offset, nNextFollowsLiteral) + apultra_get_match_varlen_size(pBestMatch[nNextIndex].length, pBestMatch[nNextIndex].offset, 0);
+                  nNextCommandSize = apultra_get_offset_varlen_size(pBestMatch[nNextIndex].length, pBestMatch[nNextIndex].offset, nNextFollowsLiteral) + apultra_get_match_varlen_size(pBestMatch[nNextIndex].length, pBestMatch[nNextIndex].offset, 0);
                }
 
                int nOriginalCombinedCommandSize = nCurCommandSize + nNextCommandSize;
 
                /* Calculate the cost of replacing this match command by literals + the next command with the cost of encoding these literals (excluding 'nNumLiterals' bytes) */
                int nReducedFollowsLiteral = (nNumLiterals + pMatch->length) ? 1 : 0;
-               int nReducedCommandSize = nNumLiterals + nNextLiterals /* literal flag bits */ + (nNextLiterals << 3) /* literal bytes */;
+               int nReducedCommandSize = nNumLiterals;
                int j;
 
                for (j = 0; j < pMatch->length; j++) {
@@ -909,7 +907,7 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
             }
          }
 
-         if ((i + pMatch->length) < nEndOffset && pMatch->offset > 0 && pMatch->length >= 2 &&
+         if ((i + pMatch->length) < nEndOffset && pMatch->offset > 0 &&
             pBestMatch[i + pMatch->length].offset > 0 &&
             pBestMatch[i + pMatch->length].length >= 2 &&
             (pMatch->length + pBestMatch[i + pMatch->length].length) >= LEAVE_ALONE_MATCH_SIZE &&
@@ -950,19 +948,14 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
             }
          }
 
-         if (pMatch->offset == nRepMatchOffset && nFollowsLiteral && pMatch->length >= 2) {
+         if (pMatch->offset == nRepMatchOffset && nFollowsLiteral) {
             /* Rep-match */
             nRepMatchOffset = pMatch->offset;
             nFollowsLiteral = 0;
             nLastMatchLen = pMatch->length;
          }
          else {
-            if (pMatch->length == 1 && pMatch->offset < 16) {
-               /* 4 bits offset */
-               nFollowsLiteral = 1;
-               nLastMatchLen = 0;
-            }
-            else if (pMatch->length <= 3 && pMatch->offset < 128) {
+            if (pMatch->length <= 3 && pMatch->offset < 128) {
                /* 7 bits offset + 1 bit length */
                nRepMatchOffset = pMatch->offset;
                nFollowsLiteral = 0;
@@ -979,7 +972,16 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
          i += pMatch->length;
          nNumLiterals = 0;
       }
+      else if (pMatch->length == 1 && pMatch->offset < 16) {
+         /* 4 bits offset */
+         nFollowsLiteral = 1;
+         nLastMatchLen = 0;
+
+         i++;
+         nNumLiterals = 0;
+      }
       else {
+         /* Literal */
          nNumLiterals++;
          i++;
          nFollowsLiteral = 1;
@@ -1227,7 +1229,7 @@ static int apultra_optimize_and_write_block(apultra_compressor *pCompressor, con
          int m = 0, nInserted = 0;
          int nMatchPos;
 
-         while (m < NMATCHES_PER_INDEX && match[m].length)
+         while (m < 8 && match[m].length)
             m++;
 
          for (nMatchPos = next_offset_for_pos[nPosition - nPreviousBlockSize]; m > 1 && m < 8 && nMatchPos >= 0; nMatchPos = next_offset_for_pos[nMatchPos - nPreviousBlockSize]) {
@@ -1260,8 +1262,10 @@ static int apultra_optimize_and_write_block(apultra_compressor *pCompressor, con
    while (i < (nPreviousBlockSize + nInDataSize)) {
       int nRangeStartIdx = i;
       unsigned char c = pInWindow[nRangeStartIdx];
-      while (i < (nPreviousBlockSize + nInDataSize) && pInWindow[i] == c)
+      do {
          i++;
+      }
+      while (i < (nPreviousBlockSize + nInDataSize) && pInWindow[i] == c);
       while (nRangeStartIdx < i) {
          rle_end[nRangeStartIdx++] = i;
       }
@@ -1494,7 +1498,7 @@ size_t apultra_compress(const unsigned char *pInputData, unsigned char *pOutBuff
    int nMaxArrivals = NARRIVALS_PER_POSITION_SMALL;
    int nError = 0;
    const int nDefaultBlockSize = (nInputSize < BLOCK_SIZE) ? ((nInputSize < 1024) ? 1024 : (int)nInputSize) : BLOCK_SIZE;
-   const int nBlockSize = nMaxWindowSize ? ((nDefaultBlockSize < nMaxWindowSize / 2) ? nDefaultBlockSize : (int)nMaxWindowSize / 2) : nDefaultBlockSize;
+   const int nBlockSize = nMaxWindowSize ? ((nDefaultBlockSize < (int)nMaxWindowSize / 2) ? nDefaultBlockSize : (int)nMaxWindowSize / 2) : nDefaultBlockSize;
    const int nMaxOutBlockSize = (int)apultra_get_max_compressed_size(nBlockSize);
 
    if (nDictionarySize < nInputSize) {
