@@ -475,7 +475,7 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
                   nMinMatchLen[j++] = 0;
                }
 
-               if (nMatchLen >= LEAVE_ALONE_MATCH_SIZE && i >= LEAVE_ALONE_MATCH_SIZE)
+               if (nMatchLen >= LEAVE_ALONE_MATCH_SIZE && i >= nMatchLen)
                   nStartingMatchLen = nMatchLen;
                else
                   nStartingMatchLen = 2;
@@ -1172,7 +1172,7 @@ static int apultra_write_block(apultra_compressor *pCompressor, apultra_final_ma
       if (nOutOffset < 0 || nOutOffset >= nMaxOutDataSize)
          return -1;
       pOutData[nOutOffset++] = 0x00;   /* Offset: EOD */
-      pCompressor->stats.num_7bit_matches++;
+      pCompressor->stats.num_eod++;
       pCompressor->stats.commands_divisor++;
 
       int nCurSafeDist = (i - nStartOffset) - nOutOffset;

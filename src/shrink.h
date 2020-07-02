@@ -92,6 +92,7 @@ typedef struct _apultra_stats {
    int num_7bit_matches;
    int num_variable_matches;
    int num_rep_matches;
+   int num_eod;
 
    int safe_dist;
 
