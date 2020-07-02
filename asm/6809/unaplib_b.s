@@ -1,4 +1,4 @@
-;  unaplib_b.s - aPLib backward decompressor for 6809 - 162 bytes
+;  unaplib_b.s - aPLib backward decompressor for 6809 - 161 bytes
 ;
 ;  in:  x = last byte of compressed data
 ;       y = last byte of decompression buffer
@@ -49,7 +49,7 @@ aplwm    subd #$0000       ; high offset bits == 2 when follows_literal == 3 ?
 
 apnorep  tfr b,a           ; transfer high offset bits to A
          ldb ,-u           ; read low offset byte in B
-         std <aprepof+1,pcr ; store match offset
+         std <aprepof+2,pcr ; store match offset
          tfr d,x           ; transfer offset to X
 
          bsr apgamma2      ; read match length
@@ -65,8 +65,7 @@ apincby1 addd #1
 apgotlen pshs u            ; save source compressed data pointer
          tfr d,x           ; copy match length to X
    
-aprepof  ldd #$aaaa        ; load match offset
-         leau d,y          ; put backreference start address in U (dst+offset)
+aprepof  leau $aaaa,y      ; put backreference start address in U (dst+offset)
 
 apcpymt  lda ,-u           ; copy matched byte
          sta ,-y 
@@ -120,7 +119,7 @@ apother  bsr apgetbit      ; read '7+1 match or short literal' bit
          ldb ,-u           ; read low bits of offset + length bit in B
          beq apdone        ; check for EOD
          lsrb              ; shift offset in place, shift length bit into carry
-         std <aprepof+1,pcr ; store match offset
+         std <aprepof+2,pcr ; store match offset
          tfr a,b           ; clear B without affecting carry flag
          incb              ; len in B will be 2*1+carry:
          rolb              ; shift length, and carry into B
