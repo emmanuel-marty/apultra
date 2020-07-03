@@ -866,7 +866,6 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
                int nOriginalCombinedCommandSize = nCurCommandSize + nNextCommandSize;
 
                /* Calculate the cost of replacing this match command by literals + the next command with the cost of encoding these literals (excluding 'nNumLiterals' bytes) */
-               int nReducedFollowsLiteral = (nNumLiterals + pMatch->length) ? 1 : 0;
                int nReducedCommandSize = nNumLiterals;
                int j;
 
@@ -877,7 +876,7 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
                      nReducedCommandSize += 1 /* literal bit */ + 8;
                }
 
-               if (pBestMatch[nNextIndex].offset == nRepMatchOffset && nReducedFollowsLiteral && pBestMatch[nNextIndex].length >= 2) {
+               if (pBestMatch[nNextIndex].offset == nRepMatchOffset /* the new command would always follow literals, the ones we create */ && pBestMatch[nNextIndex].length >= 2) {
                   nReducedCommandSize += TOKEN_SIZE_LARGE_MATCH + 2 /* apultra_get_gamma2_size(2) */ + apultra_get_match_varlen_size(pBestMatch[nNextIndex].length, pBestMatch[nNextIndex].offset, 1);
                }
                else {
@@ -887,7 +886,7 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
                      nCannotEncode = 1;
                   }
                   else {
-                     nReducedCommandSize += apultra_get_offset_varlen_size(pBestMatch[nNextIndex].length, pBestMatch[nNextIndex].offset, nReducedFollowsLiteral) + apultra_get_match_varlen_size(pBestMatch[nNextIndex].length, pBestMatch[nNextIndex].offset, 0);
+                     nReducedCommandSize += apultra_get_offset_varlen_size(pBestMatch[nNextIndex].length, pBestMatch[nNextIndex].offset, 1 /* follows literals */) + apultra_get_match_varlen_size(pBestMatch[nNextIndex].length, pBestMatch[nNextIndex].offset, 0);
                   }
                }
 
@@ -972,7 +971,7 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
          i += pMatch->length;
          nNumLiterals = 0;
       }
-      else if (pMatch->length == 1 && pMatch->offset < 16) {
+      else if (pMatch->length == 1) {
          /* 4 bits offset */
          nFollowsLiteral = 1;
          nLastMatchLen = 0;
