@@ -81,13 +81,12 @@ apcpymt  lda ,-u           ; copy matched byte
 apdibits bsr apgetbit      ; read bit
          rolb              ; push into B
 apgetbit lsl <apbitbuf,pcr ; shift bit queue, and high bit into carry
-         bne apgotbit      ; queue not empty, bits remain
-         pshs a
+         bne apdone        ; queue not empty, bits remain
+         pshs a            ; push reg A
          lda ,-u           ; read 8 new bits
          rola              ; shift bit queue, and high bit into carry
          sta <apbitbuf,pcr ; save bit queue
-         puls a
-apgotbit rts
+         puls a,pc         ; pop reg A and return
 
 apbitbuf fcb $00           ; bit queue
 
