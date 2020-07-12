@@ -25,7 +25,7 @@
 apl_decompress
          lda #$80          ; initialize empty bit queue
          sta <apbitbuf,pcr ; plus bit to roll into carry
-         tfr x,u
+         leau ,x
 
 apcplit  lda ,u+           ; copy literal byte
          sta ,y+
