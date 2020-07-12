@@ -1,4 +1,4 @@
-;  unaplib.s - aPLib decompressor for 6809 - 163 bytes
+;  unaplib.s - aPLib decompressor for 6809 - 157 bytes
 ;
 ;  in:  x = start of compressed data
 ;       y = start of decompression buffer
@@ -27,11 +27,11 @@ apl_decompress
          sta <apbitbuf,pcr ; plus bit to roll into carry
          leau ,x
 
-apcplit  lda ,u+           ; copy literal byte
-         sta ,y+
+apcplit  ldb ,u+           ; copy literal byte
+apwtlit  stb ,y+
 
-apaftlit lda #$03          ; set 'follows literal' flag
-         sta <aplwm+2,pcr
+         lda #$03          ; set 'follows literal' flag
+apwtflg  sta <aplwm+2,pcr
 
 aptoken  bsr apgetbit      ; read 'literal or match' bit
          bcc apcplit       ; if 0: literal
@@ -63,7 +63,7 @@ apincby2 addd #1
 apincby1 addd #1
 apgotlen pshs u            ; save source compressed data pointer
          tfr d,x           ; copy match length to X
-   
+
 aprepof  ldd #$aaaa        ; load match offset
          nega              ; reverse sign of offset in D
          negb
@@ -71,15 +71,14 @@ aprepof  ldd #$aaaa        ; load match offset
          leau d,y          ; put backreference start address in U (dst+offset)
 
 apcpymt  lda ,u+           ; copy matched byte
-         sta ,y+ 
+         sta ,y+
          leax -1,x         ; decrement X
          bne apcpymt       ; loop until all matched bytes are copied
 
          puls u            ; restore source compressed data pointer
 
          lda #$02          ; clear 'follows literal' flag
-         sta <aplwm+2,pcr
-         bra aptoken
+         bra apwtflg       ; go write flag
 
 apdibits bsr apgetbit      ; read bit
          rolb              ; push into B
@@ -98,13 +97,11 @@ apshort  clrb
          rolb
          bsr apdibits      ; read 4 offset bits
          rolb
-         beq apwrzero
+         beq apwtlit       ; go write zero
 
          negb              ; reverse offset in D
          ldb b,y           ; load backreferenced byte from dst+offset
-
-apwrzero stb ,y+
-         bra apaftlit
+         bra apwtlit       ; go write backreferenced byte
 
 apgamma2 ldd #$1           ; init to 1 so it gets shifted to 2 below
 apg2loop bsr apgetbit      ; read data bit
@@ -125,4 +122,3 @@ apother  bsr apgetbit      ; read '7+1 match or short literal' bit
          ldb #$01          ; len in B will be 2*1+carry:
          rolb              ; shift length, and carry into B
          bra apgotlen      ; go copy match
-
