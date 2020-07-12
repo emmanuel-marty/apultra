@@ -1,4 +1,4 @@
-;  unaplib_b.s - aPLib backward decompressor for 6809 - 161 bytes
+;  unaplib_b.s - aPLib backward decompressor for 6809 - 154 bytes
 ;
 ;  in:  x = last byte of compressed data
 ;       y = last byte of decompression buffer
@@ -28,11 +28,11 @@ apl_decompress
          leau 1,x
          leay 1,y
 
-apcplit  lda ,-u           ; copy literal byte
-         sta ,-y
+apcplit  ldb ,-u           ; copy literal byte
+apwtlit  stb ,-y
 
-apaftlit lda #$03          ; set 'follows literal' flag
-         sta <aplwm+2,pcr
+         lda #$03          ; set 'follows literal' flag
+apwtflg  sta <aplwm+2,pcr
 
 aptoken  bsr apgetbit      ; read 'literal or match' bit
          bcc apcplit       ; if 0: literal
@@ -64,30 +64,28 @@ apincby2 addd #1
 apincby1 addd #1
 apgotlen pshs u            ; save source compressed data pointer
          tfr d,x           ; copy match length to X
-   
+
 aprepof  leau $aaaa,y      ; put backreference start address in U (dst+offset)
 
 apcpymt  lda ,-u           ; copy matched byte
-         sta ,-y 
+         sta ,-y
          leax -1,x         ; decrement X
          bne apcpymt       ; loop until all matched bytes are copied
 
          puls u            ; restore source compressed data pointer
 
          lda #$02          ; clear 'follows literal' flag
-         sta <aplwm+2,pcr
-         bra aptoken
+         bra apwtflg       ; go write flag
 
 apdibits bsr apgetbit      ; read bit
          rolb              ; push into B
 apgetbit lsl <apbitbuf,pcr ; shift bit queue, and high bit into carry
-         bne apgotbit      ; queue not empty, bits remain
-         pshs a
+         bne apdone        ; queue not empty, bits remain
+         pshs a            ; push reg A
          lda ,-u           ; read 8 new bits
          rola              ; shift bit queue, and high bit into carry
          sta <apbitbuf,pcr ; save bit queue
-         puls a
-apgotbit rts
+         puls a,pc         ; pop reg A and return
 
 apbitbuf fcb $00           ; bit queue
 
@@ -96,13 +94,11 @@ apshort  clrb
          rolb
          bsr apdibits      ; read 4 offset bits
          rolb
-         beq apwrzero
+         beq apwtlit       ; go write a zero
 
          decb              ; we load below without predecrement, adjust here
          ldb b,y           ; load backreferenced byte from dst+offset
-
-apwrzero stb ,-y
-         bra apaftlit
+         bra apwtlit       ; go write backreferenced byte
 
 apgamma2 ldd #$1           ; init to 1 so it gets shifted to 2 below
 apg2loop bsr apgetbit      ; read data bit
@@ -120,7 +116,6 @@ apother  bsr apgetbit      ; read '7+1 match or short literal' bit
          beq apdone        ; check for EOD
          lsrb              ; shift offset in place, shift length bit into carry
          std <aprepof+2,pcr ; store match offset
-         tfr a,b           ; clear B without affecting carry flag
-         incb              ; len in B will be 2*1+carry:
+         ldb #$01          ; len in B will be 2*1+carry:
          rolb              ; shift length, and carry into B
          bra apgotlen      ; go copy match
