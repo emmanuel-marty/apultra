@@ -1,4 +1,4 @@
-;  unaplib_b.s - aPLib backward decompressor for 6809 - 155 bytes
+;  unaplib_b.s - aPLib backward decompressor for 6809 - 154 bytes
 ;
 ;  in:  x = last byte of compressed data
 ;       y = last byte of decompression buffer
@@ -116,7 +116,6 @@ apother  bsr apgetbit      ; read '7+1 match or short literal' bit
          beq apdone        ; check for EOD
          lsrb              ; shift offset in place, shift length bit into carry
          std <aprepof+2,pcr ; store match offset
-         tfr a,b           ; clear B without affecting carry flag
-         incb              ; len in B will be 2*1+carry:
+         ldb #$01          ; len in B will be 2*1+carry:
          rolb              ; shift length, and carry into B
          bra apgotlen      ; go copy match
