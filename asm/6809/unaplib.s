@@ -31,13 +31,14 @@ apcplit  ldb ,u+           ; copy literal byte
 apwtlit  stb ,y+
 
          lda #$03          ; set 'follows literal' flag
-apwtflg  sta <aplwm+2,pcr
 
 aptoken  bsr apgetbit      ; read 'literal or match' bit
          bcc apcplit       ; if 0: literal
 
          bsr apgetbit      ; read '8+n bits or other type' bit
          bcs apother       ; if 11x: other type of match
+
+         sta <aplwm+2,pcr  ; store 'follows literal' flag
 
          bsr apgamma2      ; 10: read gamma2-coded high offset bits
 aplwm    subd #$0000       ; high offset bits == 2 when follows_literal == 3 ?
@@ -78,7 +79,7 @@ apcpymt  lda ,u+           ; copy matched byte
          puls u            ; restore source compressed data pointer
 
          lda #$02          ; clear 'follows literal' flag
-         bra apwtflg       ; go write flag
+         bra aptoken
 
 apdibits bsr apgetbit      ; read bit
          rolb              ; push into B

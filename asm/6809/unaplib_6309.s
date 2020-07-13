@@ -59,13 +59,14 @@ apcplit  ldb ,u+           ; copy literal byte
 apwtlit  stb ,y+
 
          lda #3            ; set 'follows literal' flag
-apwtflg  sta aplwm+2
 
 aptoken  bsr apgetbit      ; read 'literal or match' bit
          bcc apcplit       ; if 0: literal
 
          bsr apgetbit      ; read '8+n bits or other type' bit
          bcs apother       ; if 11x: other type of match
+
+         sta aplwm+2       ; store 'follows literal' flag
 
          bsr apgamma2      ; 10: read gamma2-coded high offset bits
 aplwm    subd #$0000       ; high offset bits == 2 when follows_literal == 3 ?
@@ -99,7 +100,7 @@ aprepof  ldd #$aaaa        ; load match offset
          tfm d+,y+         ; copy matched bytes
 
          lda #2            ; clear 'follows literal' flag
-         bra apwtflg
+         bra aptoken
 
 apgamma2 ldd #1            ; init to 1 so it gets shifted to 2 below
 apg2loop bsr apgetbit      ; read data bit
