@@ -169,7 +169,6 @@ static inline int apultra_get_offset_varlen_size(const int nLength, const int nM
  *
  * @param nLength match length
  * @param nMatchOffset match offset
- * @param nIsRepMatch non-zero if this is a rep-match, zero if it is a regular match
  *
  * @return number of extra bits required
  */
