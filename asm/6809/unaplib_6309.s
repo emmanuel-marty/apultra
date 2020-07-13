@@ -103,8 +103,7 @@ aprepof  ldd #$aaaa        ; load match offset
 
 apgamma2 ldd #1            ; init to 1 so it gets shifted to 2 below
 apg2loop bsr apgetbit      ; read data bit
-         rolb              ; shift into D
-         rola
+         rold              ; shift into D
          bsr apgetbit      ; read continuation bit
          bcs apg2loop      ; loop until a zero continuation bit is read
 apdone   rts
