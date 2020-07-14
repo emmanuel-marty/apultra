@@ -133,9 +133,9 @@ apshort  clrb
 apother  bsr apgetbit      ; read '7+1 match or short literal' bit
          bcs apshort       ; if 111: 4 bit offset for 1-byte copy
 
-         clra              ; clear high bits in A
          ldb ,u+           ; read low bits of offset + length bit in B
          beq apdone        ; check for EOD
+         clra              ; clear high bits in A
          lsrb              ; shift offset in place, shift length bit into carry
          std aprepof+1     ; store match offset
          ldb #1            ; len in B will be 2*1+carry:
