@@ -49,7 +49,7 @@ extern "C" {
 #define VISITED_FLAG 0x8000000000000000ULL
 #define EXCL_VISITED_MASK  0x7fffffffffffffffULL
 
-#define NARRIVALS_PER_POSITION 43
+#define NARRIVALS_PER_POSITION 46
 #define NARRIVALS_PER_POSITION_SMALL 9
 
 #define NMATCHES_PER_INDEX 64
@@ -134,6 +134,7 @@ typedef struct _apultra_compressor {
    int flags;
    int block_size;
    int max_arrivals;
+   char rep_inserted[NARRIVALS_PER_POSITION * (64 / 8)];
    apultra_stats stats;
 } apultra_compressor;
 

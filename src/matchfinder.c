@@ -275,7 +275,7 @@ int apultra_find_matches_at(apultra_compressor *pCompressor, const int nOffset, 
             int nMatchLen = (int)(ref >> (LCP_SHIFT + TAG_BITS));
 
             if ((matchptr - pMatches) < nMaxMatches) {
-               if (nMatchOffset <= MAX_OFFSET && abs(nMatchOffset - nPrevOffset) >= 288) {
+               if (nMatchOffset <= MAX_OFFSET && abs(nMatchOffset - nPrevOffset) >= 128) {
                   if (nPrevOffset && nPrevLen > 2 && nMatchOffset == (nPrevOffset - 1) && nMatchLen == (nPrevLen - 1) && cur_depth && nCurDepth < LCP_MAX) {
                      nCurDepth++;
                      *cur_depth = nCurDepth | 0x8000;
@@ -306,7 +306,7 @@ int apultra_find_matches_at(apultra_compressor *pCompressor, const int nOffset, 
             int nMatchLen = (int)(ref >> (LCP_SHIFT + TAG_BITS));
 
             if ((matchptr - pMatches) < nMaxMatches) {
-               if (nMatchOffset <= MAX_OFFSET && (nMatchLen >= 3 || (nMatchLen >= 2 && (matchptr - pMatches) < (nMaxMatches - 1))) && nMatchLen < 1280 && abs(nMatchOffset - nPrevOffset) >= 288) {
+               if (nMatchOffset <= MAX_OFFSET && (nMatchLen >= 3 || (nMatchLen >= 2 && (matchptr - pMatches) < (nMaxMatches - 1))) && nMatchLen < 1280 && abs(nMatchOffset - nPrevOffset) >= 128) {
                   if (nPrevOffset && nPrevLen > 2 && nMatchOffset == (nPrevOffset - 1) && nMatchLen == (nPrevLen - 1) && cur_depth && nCurDepth < LCP_MAX) {
                      nCurDepth++;
                      *cur_depth = nCurDepth | 0x8000;
@@ -370,7 +370,7 @@ int apultra_find_matches_at(apultra_compressor *pCompressor, const int nOffset, 
          int nMatchLen = (int)(ref >> (LCP_SHIFT + TAG_BITS));
 
          if ((matchptr - pMatches) < nMaxMatches) {
-            if (nMatchOffset <= MAX_OFFSET && nMatchLen >= 2 && abs(nMatchOffset - nPrevOffset) >= 288) {
+            if (nMatchOffset <= MAX_OFFSET && nMatchLen >= 2 && abs(nMatchOffset - nPrevOffset) >= 128) {
                if (nPrevOffset && nPrevLen > 2 && nMatchOffset == (nPrevOffset - 1) && nMatchLen == (nPrevLen - 1) && cur_depth && nCurDepth < LCP_MAX) {
                   nCurDepth++;
                   *cur_depth = nCurDepth | 0x8000;
