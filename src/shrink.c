@@ -677,12 +677,13 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
                                           pDestArrival->score = nScore;
                                           pDestArrival->rep_offset = nRepOffset;
                                           pDestArrival->rep_pos = i;
-                                          if (k < 64)
-                                             rep_inserted[(j << 3) + (k >> 3)] |= (1 << (k & 7));
                                        }
                                     }
                                  }
                               }
+
+                              if (k < 64)
+                                 rep_inserted[(j << 3) + (k >> 3)] |= (1 << (k & 7));
                            }
                            else {
                               break;
