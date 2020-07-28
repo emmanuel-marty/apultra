@@ -134,7 +134,6 @@ typedef struct _apultra_compressor {
    int flags;
    int block_size;
    int max_arrivals;
-   char rep_inserted[NARRIVALS_PER_POSITION * (64 / 8)];
    apultra_stats stats;
 } apultra_compressor;
 
