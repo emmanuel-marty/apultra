@@ -46,7 +46,7 @@
 #define OPT_STATS          2
 #define OPT_BACKWARD       4
 
-#define TOOL_VERSION "1.3.4"
+#define TOOL_VERSION "1.3.5"
 
 /*---------------------------------------------------------------------------*/
 
