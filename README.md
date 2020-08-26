@@ -29,6 +29,7 @@ Also of interest:
  * [i8080 decompressors](https://gitlab.com/ivagor/unapack) for aPLib by Ivan Gorodetsky
  * [Gameboy decompressor](https://github.com/untoxa/UnaPACK.GBZ80) by untoxa
  * Check out [Kitsune's Curse](https://www.usebox.net/jjm/kitsunes-curse/), a new game for the Amstrad CPC 464/6128 by usebox.net that uses apultra for compression.
+ * [Petris](https://github.com/bbbbbr/Petris), a homebrew game for the Gameboy, uses apultra as well.
 
 License:
 
