@@ -31,7 +31,6 @@
  */
 
 #include <stdio.h>
-#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #ifdef _WIN32
@@ -1039,69 +1038,69 @@ int main(int argc, char **argv) {
    const char *pszInFilename = NULL;
    const char *pszOutFilename = NULL;
    const char *pszDictionaryFilename = NULL;
-   bool bArgsError = false;
-   bool bCommandDefined = false;
-   bool bVerifyCompression = false;
-   bool bFormatVersionDefined = false;
+   int nArgsError = 0;
+   int nCommandDefined = 0;
+   int nVerifyCompression = 0;
+   int nFormatVersionDefined = 0;
    char cCommand = 'z';
    unsigned int nOptions = 0;
    unsigned int nMaxWindowSize = 0;
 
    for (i = 1; i < argc; i++) {
       if (!strcmp(argv[i], "-d")) {
-         if (!bCommandDefined) {
-            bCommandDefined = true;
+         if (!nCommandDefined) {
+            nCommandDefined = 1;
             cCommand = 'd';
          }
          else
-            bArgsError = true;
+            nArgsError = 1;
       }
       else if (!strcmp(argv[i], "-z")) {
-         if (!bCommandDefined) {
-            bCommandDefined = true;
+         if (!nCommandDefined) {
+            nCommandDefined = 1;
             cCommand = 'z';
          }
          else
-            bArgsError = true;
+            nArgsError = 1;
       }
       else if (!strcmp(argv[i], "-c")) {
-         if (!bVerifyCompression) {
-            bVerifyCompression = true;
+         if (!nVerifyCompression) {
+            nVerifyCompression = 1;
          }
          else
-            bArgsError = true;
+            nArgsError = 1;
       }
       else if (!strcmp(argv[i], "-cbench")) {
-         if (!bCommandDefined) {
-            bCommandDefined = true;
+         if (!nCommandDefined) {
+            nCommandDefined = 1;
             cCommand = 'B';
          }
          else
-            bArgsError = true;
+            nArgsError = 1;
       }
       else if (!strcmp(argv[i], "-dbench")) {
-         if (!bCommandDefined) {
-            bCommandDefined = true;
+         if (!nCommandDefined) {
+            nCommandDefined = 1;
             cCommand = 'b';
          }
          else
-            bArgsError = true;
+            nArgsError = 1;
       }
       else if (!strcmp(argv[i], "-test")) {
-         if (!bCommandDefined) {
-            bCommandDefined = true;
+         if (!nCommandDefined) {
+            nCommandDefined = 1;
             cCommand = 't';
          }
          else
-            bArgsError = true;
+            nArgsError = 1;
       }
       else if (!strcmp(argv[i], "-quicktest")) {
-         if (!bCommandDefined) {
-            bCommandDefined = true;
+         if (!nCommandDefined) {
+            nCommandDefined = 1;
             cCommand = 'T';
          }
          else
-            bArgsError = true;
+            nArgsError = 1;
       }
       else if (!strcmp(argv[i], "-D")) {
          if (!pszDictionaryFilename && (i + 1) < argc) {
@@ -1109,21 +1108,21 @@ int main(int argc, char **argv) {
             i++;
          }
          else
-            bArgsError = true;
+            nArgsError = 1;
       }
       else if (!strncmp(argv[i], "-D", 2)) {
          if (!pszDictionaryFilename) {
             pszDictionaryFilename = argv[i] + 2;
          }
          else
-            bArgsError = true;
+            nArgsError = 1;
       }
       else if (!strcmp(argv[i], "-v")) {
          if ((nOptions & OPT_VERBOSE) == 0) {
             nOptions |= OPT_VERBOSE;
          }
          else
-            bArgsError = true;
+            nArgsError = 1;
       }
       else if (!strcmp(argv[i], "-w")) {
          if (!nMaxWindowSize && (i + 1) < argc) {
@@ -1133,39 +1132,39 @@ int main(int argc, char **argv) {
                i++;
             }
             else {
-               bArgsError = true;
+               nArgsError = 1;
             }
          }
          else
-            bArgsError = true;
+            nArgsError = 1;
       }
       else if (!strncmp(argv[i], "-w", 2)) {
          if (!nMaxWindowSize) {
             char *pEnd = NULL;
             nMaxWindowSize = (int)strtol(argv[i] + 2, &pEnd, 10);
             if (pEnd && pEnd != (argv[i] + 2) && (nMaxWindowSize >= 16 && nMaxWindowSize <= 0x200000)) {
-               bFormatVersionDefined = true;
+               nFormatVersionDefined = 1;
             }
             else {
-               bArgsError = true;
+               nArgsError = 1;
             }
          }
          else
-            bArgsError = true;
+            nArgsError = 1;
       }
       else if (!strcmp(argv[i], "-stats")) {
          if ((nOptions & OPT_STATS) == 0) {
             nOptions |= OPT_STATS;
          }
          else
-            bArgsError = true;
+            nArgsError = 1;
       }
       else if (!strcmp(argv[i], "-b")) {
          if ((nOptions & OPT_BACKWARD) == 0) {
             nOptions |= OPT_BACKWARD;
          }
          else
-            bArgsError = true;
+            nArgsError = 1;
       }
       else {
          if (!pszInFilename)
@@ -1174,19 +1173,19 @@ int main(int argc, char **argv) {
             if (!pszOutFilename)
                pszOutFilename = argv[i];
             else
-               bArgsError = true;
+               nArgsError = 1;
          }
       }
    }
 
-   if (!bArgsError && cCommand == 't') {
+   if (!nArgsError && cCommand == 't') {
       return do_self_test(nOptions, nMaxWindowSize, 0);
    }
-   else if (!bArgsError && cCommand == 'T') {
+   else if (!nArgsError && cCommand == 'T') {
       return do_self_test(nOptions, nMaxWindowSize, 1);
    }
 
-   if (bArgsError || !pszInFilename || !pszOutFilename) {
+   if (nArgsError || !pszInFilename || !pszOutFilename) {
       fprintf(stderr, "apultra command-line tool v" TOOL_VERSION " by Emmanuel Marty and spke\n");
       fprintf(stderr, "usage: %s [-c] [-d] [-v] [-b] <infile> <outfile>\n", argv[0]);
       fprintf(stderr, "        -c: check resulting stream after compressing\n");
@@ -1207,7 +1206,7 @@ int main(int argc, char **argv) {
 
    if (cCommand == 'z') {
       int nResult = do_compress(pszInFilename, pszOutFilename, pszDictionaryFilename, nOptions, nMaxWindowSize);
-      if (nResult == 0 && bVerifyCompression) {
+      if (nResult == 0 && nVerifyCompression) {
          return do_compare(pszOutFilename, pszInFilename, pszDictionaryFilename, nOptions);
       } else {
          return nResult;
