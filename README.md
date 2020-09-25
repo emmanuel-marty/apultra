@@ -24,13 +24,16 @@ Inspirations:
  * [LZ4](https://github.com/lz4/lz4) by Yann Collet. 
  * spke for help and support
 
+Some projects that use apultra for compression:
+ * [Brick Rick](https://www.usebox.net/jjm/brick-rick/), a new game for the Amstrad CPC 464/6128 by usebox.net. A physical copy can be ordered from [Polyplay](https://www.polyplay.xyz/navi.php?suche=Brick+Rick&lang=eng)
+ * [Kitsune's Curse](https://www.usebox.net/jjm/kitsunes-curse/), another new title for the CPC line by usebox.net.
+ * [Petris](https://github.com/bbbbbr/Petris), a homebrew game for the Gameboy.
+ * [Mr Palot](https://github.com/graelx/mrpalot), a ZX Spectrum game made with the Mojon Twins MK1 engine.
+
 Also of interest:
  * [oapack](https://gitlab.com/eugene77/oapack) by Eugene Larchenko, a brute-force (exhaustive) optimal packer for the aPLib format. 
  * [i8080 decompressors](https://gitlab.com/ivagor/unapack) for aPLib by Ivan Gorodetsky
  * [Gameboy decompressor](https://github.com/untoxa/UnaPACK.GBZ80) by untoxa
- * Check out [Kitsune's Curse](https://www.usebox.net/jjm/kitsunes-curse/), a new game for the Amstrad CPC 464/6128 by usebox.net that uses apultra for compression.
- * [Petris](https://github.com/bbbbbr/Petris), a homebrew game for the Gameboy, uses apultra as well.
- * [Mr Palot](https://github.com/graelx/mrpalot), a ZX Spectrum game made with the Mojon Twins MK1 engine, that compresses game data with apultra.
 
 License:
 
