@@ -32,13 +32,14 @@ apcplit  ldb ,-u           ; copy literal byte
 apwtlit  stb ,-y
 
          lda #$03          ; set 'follows literal' flag
-apwtflg  sta <aplwm+2,pcr
 
 aptoken  bsr apgetbit      ; read 'literal or match' bit
          bcc apcplit       ; if 0: literal
 
          bsr apgetbit      ; read '8+n bits or other type' bit
          bcs apother       ; if 11x: other type of match
+
+         sta <aplwm+2,pcr  ; store 'follows literal' flag
 
          bsr apgamma2      ; 10: read gamma2-coded high offset bits
 aplwm    subd #$0000       ; high offset bits == 2 when follows_literal == 3 ?
@@ -75,7 +76,7 @@ apcpymt  lda ,-u           ; copy matched byte
          puls u            ; restore source compressed data pointer
 
          lda #$02          ; clear 'follows literal' flag
-         bra apwtflg       ; go write flag
+         bra aptoken
 
 apdibits bsr apgetbit      ; read bit
          rolb              ; push into B
@@ -111,9 +112,9 @@ apdone   rts
 apother  bsr apgetbit      ; read '7+1 match or short literal' bit
          bcs apshort       ; if 111: 4 bit offset for 1-byte copy
 
-         clra              ; clear high bits in A
          ldb ,-u           ; read low bits of offset + length bit in B
          beq apdone        ; check for EOD
+         clra              ; clear high bits in A
          lsrb              ; shift offset in place, shift length bit into carry
          std <aprepof+2,pcr ; store match offset
          ldb #$01          ; len in B will be 2*1+carry:

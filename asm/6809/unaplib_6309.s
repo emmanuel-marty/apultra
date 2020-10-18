@@ -1,4 +1,4 @@
-;  unaplib-6309.s - aPLib decompressor for H6309 - 145 bytes
+;  unaplib-6309.s - aPLib decompressor for H6309 - 134 bytes
 ;
 ;  in:  x = start of compressed data
 ;       y = start of decompression buffer
@@ -58,8 +58,7 @@ apl_decompress
 apcplit  ldb ,u+           ; copy literal byte
 apwtlit  stb ,y+
 
-         lda #3            ; set 'follows literal' flag
-apwtflg  sta aplwm+2
+         ldb #3            ; set 'follows literal' flag
 
 aptoken  bsr apgetbit      ; read 'literal or match' bit
          bcc apcplit       ; if 0: literal
@@ -68,16 +67,16 @@ aptoken  bsr apgetbit      ; read 'literal or match' bit
          bcs apother       ; if 11x: other type of match
 
          bsr apgamma2      ; 10: read gamma2-coded high offset bits
-aplwm    subd #$0000       ; high offset bits == 2 when follows_literal == 3 ?
+         clra
+         subr d,w          ; high offset bits == 2 when follows_literal == 3 ?
          bcc apnorep       ; if not, not a rep-match
 
          bsr apgamma2      ; read repmatch length
          bra apgotlen      ; go copy large match
 
-apnorep  tfr b,a           ; transfer high offset bits to A
+apnorep  tfr f,a           ; transfer high offset bits to A
          ldb ,u+           ; read low offset byte in B
-         std aprepof+1     ; store match offset
-         tfr d,x           ; transfer offset to X
+         tfr d,x           ; save match offset
 
          bsr apgamma2      ; read match length
 
@@ -89,35 +88,31 @@ apnorep  tfr b,a           ; transfer high offset bits to A
          bge apincby1      ; if so, increase match len by 1
          cmpx #$80         ; offset < 128 ?
          bge apgotlen      ; if so, increase match len by 2
-apincby2 incd
-apincby1 incd
-apgotlen tfr d,w           ; copy match length to W for "TFM" instruction
-aprepof  ldd #$aaaa        ; load match offset
-         negd              ; reverse sign of offset in D
+apincby2 incw
+apincby1 incw
 
-         addr y,d          ; put backreference start address in D (dst + offset)
+apgotlen tfr y,d           ; transfer dst to D
+         subr x,d          ; put backreference start address in D (dst + offset)
          tfm d+,y+         ; copy matched bytes
 
-         lda #2            ; clear 'follows literal' flag
-         bra apwtflg
+         ldb #2            ; clear 'follows literal' flag
+         bra aptoken
 
-apgamma2 ldd #1            ; init to 1 so it gets shifted to 2 below
-apg2loop bsr apgetbit      ; read data bit
-         rolb              ; shift into D
-         rola
+apgamma2 ldw #1            ; init to 1 so it gets shifted to 2 below
+loop@    bsr apgetbit      ; read data bit
+         rolw              ; shift into W
          bsr apgetbit      ; read continuation bit
-         bcs apg2loop      ; loop until a zero continuation bit is read
-apdone   rts
+         bcs loop@         ; loop until a zero continuation bit is read
+         rts
 
 apdibits bsr apgetbit      ; read bit
          rolb              ; push into B
 apgetbit lsl apbitbuf      ; shift bit queue, and high bit into carry
-         bne apdone        ; queue not empty, bits remain
-         pshs a            ; save reg A
+         bne aprts         ; queue not empty, bits remain
          lda ,u+           ; read 8 new bits
          rola              ; shift bit queue, and high bit into carry
          sta apbitbuf      ; save bit queue
-         puls a,pc         ; pop reg A and return
+aprts    rts
 
 apshort  clrb
          bsr apdibits      ; read 2 offset bits
@@ -133,11 +128,12 @@ apshort  clrb
 apother  bsr apgetbit      ; read '7+1 match or short literal' bit
          bcs apshort       ; if 111: 4 bit offset for 1-byte copy
 
-         clra              ; clear high bits in A
          ldb ,u+           ; read low bits of offset + length bit in B
-         beq apdone        ; check for EOD
+         beq aprts         ; check for EOD and exit if so
+         clra              ; clear high bits in A
          lsrb              ; shift offset in place, shift length bit into carry
-         std aprepof+1     ; store match offset
+         tfr d,x           ; save match offset
          ldb #1            ; len in B will be 2*1+carry:
          rolb              ; shift length, and carry into B
+         tfr d,w
          bra apgotlen      ; go copy match
