@@ -720,17 +720,19 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
       }
    }
    
-   apultra_arrival *end_arrival = &arrival[(i * nArrivalsPerPosition) + 0];
-   apultra_final_match *pBestMatch = pCompressor->best_match - nStartOffset;
-      
-   while (end_arrival->from_slot > 0 && end_arrival->from_pos >= 0 && (int)end_arrival->from_pos < nEndOffset) {
-      pBestMatch[end_arrival->from_pos].length = end_arrival->match_len;
-      if (end_arrival->match_len >= 2)
-         pBestMatch[end_arrival->from_pos].offset = end_arrival->rep_offset;
-      else
-         pBestMatch[end_arrival->from_pos].offset = end_arrival->short_offset;
+   if (!nInsertForwardReps) {
+      apultra_arrival* end_arrival = &arrival[(i * nArrivalsPerPosition) + 0];
+      apultra_final_match* pBestMatch = pCompressor->best_match - nStartOffset;
 
-      end_arrival = &arrival[(end_arrival->from_pos * nArrivalsPerPosition) + (end_arrival->from_slot-1)];
+      while (end_arrival->from_slot > 0 && end_arrival->from_pos >= 0 && (int)end_arrival->from_pos < nEndOffset) {
+         pBestMatch[end_arrival->from_pos].length = end_arrival->match_len;
+         if (end_arrival->match_len >= 2)
+            pBestMatch[end_arrival->from_pos].offset = end_arrival->rep_offset;
+         else
+            pBestMatch[end_arrival->from_pos].offset = end_arrival->short_offset;
+
+         end_arrival = &arrival[(end_arrival->from_pos * nArrivalsPerPosition) + (end_arrival->from_slot - 1)];
+      }
    }
 }
 
