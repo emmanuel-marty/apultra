@@ -1038,7 +1038,7 @@ static int apultra_write_block(apultra_compressor *pCompressor, apultra_final_ma
          if (nMatchOffset < MIN_OFFSET || nMatchOffset > MAX_OFFSET)
             return -1;
 
-         if (nMatchOffset == nRepMatchOffset && *nFollowsLiteral && nMatchLen >= 2) {
+         if (nMatchOffset == nRepMatchOffset && *nFollowsLiteral) {
             /* Rep-match */
             nOutOffset = apultra_write_bits(pOutData, nOutOffset, nMaxOutDataSize, TOKEN_CODE_LARGE_MATCH, TOKEN_SIZE_LARGE_MATCH, nCurBitsOffset, nCurBitShift);
             nOutOffset = apultra_write_bits(pOutData, nOutOffset, nMaxOutDataSize, 0 /* length of 2 encoded as gamma 2 */, 2, nCurBitsOffset, nCurBitShift);
@@ -1076,11 +1076,6 @@ static int apultra_write_block(apultra_compressor *pCompressor, apultra_final_ma
                else
                   nOutOffset = apultra_write_gamma2_value(pOutData, nOutOffset, nMaxOutDataSize, (nMatchOffset >> 8) + 2, nCurBitsOffset, nCurBitShift);
                pOutData[nOutOffset++] = nMatchOffset & 0xff;
-
-               if (nMatchOffset < 128 && nMatchLen <= 3) {
-                  /* A shorter match must have been encoded as a 4 bits offset or a 7 bits offset + 1 bit match length command */
-                  return -1;
-               }
 
                /* The match length isn't encoded in the command, emit elias gamma value */
 
