@@ -411,13 +411,12 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
       int nRepMatchArrivalIdx[NARRIVALS_PER_POSITION + 1];
       int nNumRepMatchArrivals = 0;
 
-      for (j = 0; j < nNumArrivalsForThisPos; j++) {
+      for (j = 0; j < nNumArrivalsForThisPos && (i + 2) <= nEndOffset; j++) {
          int nRepOffset = cur_arrival[j].rep_offset;
 
          if (cur_arrival[j].follows_literal &&
             nRepOffset) {
-            if (i >= nRepOffset &&
-               (i + 2) <= nEndOffset) {
+            if (i >= nRepOffset) {
                const unsigned char* pInWindowStart = pInWindow + i;
 
                if (pInWindowStart[0] == pInWindowStart[-nRepOffset]) {
