@@ -206,11 +206,10 @@ static void apultra_insert_forward_match(apultra_compressor *pCompressor, const 
    for (j = 0; j < nArrivalsPerPosition && arrival[j].from_slot; j++) {
       int nRepOffset = arrival[j].rep_offset;
 
-      if (nMatchOffset != nRepOffset && nRepOffset) {
+      if (arrival[j].follows_literal && nMatchOffset != nRepOffset && nRepOffset) {
          int nRepPos = arrival[j].rep_pos;
 
-         if (arrival[j].follows_literal &&
-            nRepPos &&
+         if (nRepPos &&
             nRepPos >= nMatchOffset &&
             nRepPos < nEndOffset &&
             pCompressor->match[((nRepPos - nStartOffset) << MATCHES_PER_INDEX_SHIFT) + NMATCHES_PER_INDEX - 1].length == 0) {
