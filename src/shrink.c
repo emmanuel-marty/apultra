@@ -386,11 +386,11 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
                         pDestArrival->from_pos = i;
                         pDestArrival->from_slot = j + 1;
                         pDestArrival->follows_literal = 1;
+                        pDestArrival->rep_offset = cur_arrival[j].rep_offset;
                         pDestArrival->short_offset = nShortOffset;
+                        pDestArrival->rep_pos = cur_arrival[j].rep_pos;
                         pDestArrival->match_len = nShortLen;
                         pDestArrival->score = nScore;
-                        pDestArrival->rep_offset = cur_arrival[j].rep_offset;
-                        pDestArrival->rep_pos = cur_arrival[j].rep_pos;
                      }
                   }
                }
@@ -410,21 +410,21 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
       int nRepMatchArrivalIdx[NARRIVALS_PER_POSITION + 1];
       int nNumRepMatchArrivals = 0;
 
+      int nMaxRepLenForPos = nEndOffset - i;
+      if (nMaxRepLenForPos > LCP_MAX)
+         nMaxRepLenForPos = LCP_MAX;
+      const unsigned char* pInWindowStart = pInWindow + i;
+      const unsigned char* pInWindowMax = pInWindowStart + nMaxRepLenForPos;
+
       for (j = 0; j < nNumArrivalsForThisPos && (i + 2) <= nEndOffset; j++) {
          int nRepOffset = cur_arrival[j].rep_offset;
 
          if (cur_arrival[j].follows_literal &&
             nRepOffset) {
             if (i >= nRepOffset) {
-               const unsigned char* pInWindowStart = pInWindow + i;
 
                if (pInWindowStart[0] == pInWindowStart[-nRepOffset]) {
-                  int nMaxRepLenForPos = nEndOffset - i;
-                  if (nMaxRepLenForPos > LCP_MAX)
-                     nMaxRepLenForPos = LCP_MAX;
-
                   const unsigned char* pInWindowAtRepOffset = pInWindowStart;
-                  const unsigned char* pInWindowMax = pInWindowStart + nMaxRepLenForPos;
 
                   int nLen0 = rle_end[i - nRepOffset] - (i - nRepOffset);
                   int nLen1 = rle_end[i] - (i);
@@ -442,10 +442,11 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
                      pInWindowAtRepOffset++;
 
                   int nCurMaxLen = (int)(pInWindowAtRepOffset - pInWindowStart);
-                  nRepLenForArrival[j] = nCurMaxLen;
 
-                  if (nCurMaxLen >= 2)
+                  if (nCurMaxLen >= 2) {
+                     nRepLenForArrival[j] = nCurMaxLen;
                      nRepMatchArrivalIdx[nNumRepMatchArrivals++] = j;
+                  }
 
                   if (nOverallMaxRepLen < nCurMaxLen)
                      nOverallMaxRepLen = nCurMaxLen;
@@ -591,12 +592,12 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
                                              pDestArrival->cost = nRevisedCodingChoiceCost;
                                              pDestArrival->from_pos = i;
                                              pDestArrival->from_slot = j + 1;
-                                             pDestArrival->short_offset = 0;
-                                             pDestArrival->match_len = k;
                                              pDestArrival->follows_literal = 0;
-                                             pDestArrival->score = nScore;
                                              pDestArrival->rep_offset = nMatchOffset;
+                                             pDestArrival->short_offset = 0;
                                              pDestArrival->rep_pos = i;
+                                             pDestArrival->match_len = k;
+                                             pDestArrival->score = nScore;
                                           }
                                        }
                                     }
@@ -684,12 +685,12 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
                                           pDestArrival->cost = nRepCodingChoiceCost;
                                           pDestArrival->from_pos = i;
                                           pDestArrival->from_slot = j + 1;
-                                          pDestArrival->short_offset = 0;
-                                          pDestArrival->match_len = k;
                                           pDestArrival->follows_literal = 0;
-                                          pDestArrival->score = nScore;
                                           pDestArrival->rep_offset = nRepOffset;
+                                          pDestArrival->short_offset = 0;
                                           pDestArrival->rep_pos = i;
+                                          pDestArrival->match_len = k;
+                                          pDestArrival->score = nScore;
                                        }
                                     }
                                  }
