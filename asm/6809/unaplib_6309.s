@@ -1,4 +1,4 @@
-;  unaplib-6309.s - aPLib decompressor for H6309 - 134 bytes
+;  unaplib_6309.s - aPLib decompressor for H6309 - 131 bytes
 ;
 ;  in:  x = start of compressed data
 ;       y = start of decompression buffer
