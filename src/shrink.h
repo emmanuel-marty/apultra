@@ -133,6 +133,7 @@ typedef struct _apultra_compressor {
    int *next_offset_for_pos;
    int flags;
    int block_size;
+   int max_offset;
    int max_arrivals;
    apultra_stats stats;
 } apultra_compressor;

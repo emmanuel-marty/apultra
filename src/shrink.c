@@ -1021,6 +1021,7 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
 static int apultra_write_block(apultra_compressor *pCompressor, apultra_final_match *pBestMatch, const unsigned char *pInWindow, const int nStartOffset, const int nEndOffset, unsigned char *pOutData, int nOutOffset, const int nMaxOutDataSize, int *nCurBitsOffset, int *nCurBitShift, int *nFollowsLiteral, int *nCurRepMatchOffset, const int nBlockFlags) {
    int i;
    int nRepMatchOffset = *nCurRepMatchOffset;
+   const int nMaxOffset = pCompressor->max_offset;
 
    if (nBlockFlags & 1) {
       if (nOutOffset < 0 || nOutOffset >= nMaxOutDataSize)
@@ -1036,7 +1037,7 @@ static int apultra_write_block(apultra_compressor *pCompressor, apultra_final_ma
          int nMatchOffset = pMatch->offset;
          int nMatchLen = pMatch->length;
 
-         if (nMatchOffset < MIN_OFFSET || nMatchOffset > MAX_OFFSET)
+         if (nMatchOffset < MIN_OFFSET || nMatchOffset > nMaxOffset)
             return -1;
 
          if (nMatchOffset == nRepMatchOffset && *nFollowsLiteral) {
@@ -1237,25 +1238,31 @@ static int apultra_optimize_and_write_block(apultra_compressor *pCompressor, con
 
          for (nMatchPos = next_offset_for_pos[nPosition - nPreviousBlockSize]; m < 15 && nMatchPos >= 0; nMatchPos = next_offset_for_pos[nMatchPos - nPreviousBlockSize]) {
             int nMatchOffset = nPosition - nMatchPos;
-            int nExistingMatchIdx;
-            int nAlreadyExists = 0;
 
-            for (nExistingMatchIdx = 0; nExistingMatchIdx < m; nExistingMatchIdx++) {
-               if (match[nExistingMatchIdx].offset == nMatchOffset ||
-                  (match[nExistingMatchIdx].offset - (match_depth[nExistingMatchIdx] & 0x7fff)) == nMatchOffset) {
-                  nAlreadyExists = 1;
-                  break;
+            if (nMatchOffset <= pCompressor->max_offset) {
+               int nExistingMatchIdx;
+               int nAlreadyExists = 0;
+
+               for (nExistingMatchIdx = 0; nExistingMatchIdx < m; nExistingMatchIdx++) {
+                  if (match[nExistingMatchIdx].offset == nMatchOffset ||
+                     (match[nExistingMatchIdx].offset - (match_depth[nExistingMatchIdx] & 0x7fff)) == nMatchOffset) {
+                     nAlreadyExists = 1;
+                     break;
+                  }
+               }
+
+               if (!nAlreadyExists) {
+                  match[m].length = (nPosition < (nPreviousBlockSize + nInDataSize - 2) && pInWindow[nMatchPos + 2] == pInWindow[nPosition + 2]) ? 3 : 2;
+                  match[m].offset = nMatchOffset;
+                  match_depth[m] = 0;
+                  m++;
+                  nInserted++;
+                  if (nInserted >= 6)
+                     break;
                }
             }
-
-            if (!nAlreadyExists) {
-               match[m].length = (nPosition < (nPreviousBlockSize + nInDataSize - 2) && pInWindow[nMatchPos + 2] == pInWindow[nPosition + 2]) ? 3 : 2;
-               match[m].offset = nMatchOffset;
-               match_depth[m] = 0;
-               m++;
-               nInserted++;
-               if (nInserted >= 6)
-                  break;
+            else {
+               break;
             }
          }
       }
@@ -1500,8 +1507,7 @@ size_t apultra_compress(const unsigned char *pInputData, unsigned char *pOutBuff
    int nResult;
    int nMaxArrivals = NARRIVALS_PER_POSITION_SMALL;
    int nError = 0;
-   const int nDefaultBlockSize = (nInputSize < BLOCK_SIZE) ? ((nInputSize < 1024) ? 1024 : (int)nInputSize) : BLOCK_SIZE;
-   const int nBlockSize = nMaxWindowSize ? ((nDefaultBlockSize < (int)nMaxWindowSize / 2) ? nDefaultBlockSize : (int)nMaxWindowSize / 2) : nDefaultBlockSize;
+   const int nBlockSize = (nInputSize < BLOCK_SIZE) ? ((nInputSize < 1024) ? 1024 : (int)nInputSize) : BLOCK_SIZE;
    const int nMaxOutBlockSize = (int)apultra_get_max_compressed_size(nBlockSize);
 
    if (nDictionarySize < nInputSize) {
@@ -1517,6 +1523,8 @@ size_t apultra_compress(const unsigned char *pInputData, unsigned char *pOutBuff
    if (nResult != 0) {
       return -1;
    }
+
+   compressor.max_offset = nMaxWindowSize ? (int)nMaxWindowSize : MAX_OFFSET;
 
    int nPreviousBlockSize = 0;
    int nNumBlocks = 0;
