@@ -27,6 +27,7 @@ Inspirations:
 Some projects that use apultra for compression:
  * [Brick Rick](https://www.usebox.net/jjm/brick-rick/), a new game for the Amstrad CPC 464/6128 by usebox.net. A physical copy can be ordered from [Polyplay](https://www.polyplay.xyz/navi.php?suche=Brick+Rick&lang=eng)
  * [Kitsune's Curse](https://www.usebox.net/jjm/kitsunes-curse/), another new title for the CPC line by usebox.net.
+ * [Sgt. Helmet's Training Day](https://www.mojontwins.com/juegos_mojonos/sgt-helmet-training-day-2020-cpc/), a new game for the Amstrad CPC by the Mojon Twins (using their MK1 engine).
  * [Petris](https://github.com/bbbbbr/Petris), a homebrew game for the Gameboy.
  * [Mr Palot](https://github.com/graelx/mrpalot), a ZX Spectrum game made with the Mojon Twins MK1 engine.
 
