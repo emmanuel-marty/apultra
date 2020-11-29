@@ -31,6 +31,7 @@ Some projects that use apultra for compression:
  * [Prince Dastan - Sokoban Within](https://www.pouet.net/prod.php?which=87382), a CPCRetroDev 2020 game for the Amstrad CPC by Euphoria Design 
  * [Petris](https://github.com/bbbbbr/Petris), a homebrew game for the Gameboy.
  * [Mr Palot](https://github.com/graelx/mrpalot), a ZX Spectrum game made with the Mojon Twins MK1 engine.
+ * [rasm](https://github.com/EdouardBERGE/rasm), a popular Z80 assembler, features built-in support for apultra-compressed data sections.
 
 Also of interest:
  * [oapack](https://gitlab.com/eugene77/oapack) by Eugene Larchenko, a brute-force (exhaustive) optimal packer for the aPLib format. 
