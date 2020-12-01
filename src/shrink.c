@@ -209,14 +209,14 @@ static void apultra_insert_forward_match(apultra_compressor *pCompressor, const 
       if (arrival[j].follows_literal && nMatchOffset != nRepOffset && nRepOffset) {
          int nRepPos = arrival[j].rep_pos;
 
-         if (nRepPos &&
-            nRepPos >= nMatchOffset &&
+         if (nRepPos >= nMatchOffset &&
+            nRepPos >= nStartOffset &&
             nRepPos < nEndOffset &&
-            pCompressor->match[((nRepPos - nStartOffset) << MATCHES_PER_INDEX_SHIFT) + NMATCHES_PER_INDEX - 1].length == 0) {
+            visited[nRepPos] != nMatchOffset) {
 
-            if (visited[nRepPos] != nMatchOffset) {
-               visited[nRepPos] = nMatchOffset;
+            visited[nRepPos] = nMatchOffset;
 
+            if (pCompressor->match[((nRepPos - nStartOffset) << MATCHES_PER_INDEX_SHIFT) + NMATCHES_PER_INDEX - 1].length == 0) {
                const unsigned char* pInWindowAtRepOffset = pInWindow + nRepPos;
 
                if (pInWindowAtRepOffset[0] == pInWindowAtRepOffset[-nMatchOffset]) {
@@ -248,7 +248,7 @@ static void apultra_insert_forward_match(apultra_compressor *pCompressor, const 
                      unsigned short* fwd_depth = pCompressor->match_depth + ((nRepPos - nStartOffset) << MATCHES_PER_INDEX_SHIFT);
                      int r;
 
-                     for (r = 0; r < NMATCHES_PER_INDEX && fwd_match[r].length >= MIN_MATCH_SIZE; r++) {
+                     for (r = 0; fwd_match[r].length >= MIN_MATCH_SIZE; r++) {
                         if (fwd_match[r].offset == nMatchOffset && (fwd_depth[r] & 0x7fff) == 0) {
                            if ((int)fwd_match[r].length < nCurRepLen) {
                               fwd_match[r].length = nCurRepLen;
