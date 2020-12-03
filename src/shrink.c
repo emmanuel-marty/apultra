@@ -209,14 +209,13 @@ static void apultra_insert_forward_match(apultra_compressor *pCompressor, const 
       if (arrival[j].follows_literal && nMatchOffset != nRepOffset && nRepOffset) {
          int nRepPos = arrival[j].rep_pos;
 
-         if (nRepPos >= nMatchOffset &&
-            nRepPos >= nStartOffset &&
+         if (nRepPos >= nStartOffset &&
             nRepPos < nEndOffset &&
             visited[nRepPos] != nMatchOffset) {
 
             visited[nRepPos] = nMatchOffset;
 
-            if (pCompressor->match[((nRepPos - nStartOffset) << MATCHES_PER_INDEX_SHIFT) + NMATCHES_PER_INDEX - 1].length == 0) {
+            if (nRepPos >= nMatchOffset && pCompressor->match[((nRepPos - nStartOffset) << MATCHES_PER_INDEX_SHIFT) + NMATCHES_PER_INDEX - 1].length == 0) {
                const unsigned char* pInWindowAtRepOffset = pInWindow + nRepPos;
 
                if (pInWindowAtRepOffset[0] == pInWindowAtRepOffset[-nMatchOffset]) {
@@ -315,7 +314,7 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
       unsigned char *match1 = pCompressor->match1 + (i - nStartOffset);
       int nShortOffset;
       int nShortLen;
-      int nShortCost;
+      int nLiteralScore;
       int nLiteralCost;
 
       if ((pInWindow[i] != 0 && (*match1) == 0) || (i == nStartOffset && (nBlockFlags & 1))) {
@@ -329,12 +328,12 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
          nLiteralCost = 4 + TOKEN_SIZE_4BIT_MATCH /* command and offset cost; no length cost */;
       }
 
-      nShortCost = nShortOffset ? 3 : 1;
+      nLiteralScore = nShortOffset ? 3 : 1;
 
       for (j = 0; j < nArrivalsPerPosition && cur_arrival[j].from_slot; j++) {
          int nPrevCost = cur_arrival[j].cost & 0x3fffffff;
          int nCodingChoiceCost = nPrevCost + nLiteralCost;
-         int nScore = cur_arrival[j].score + nShortCost;
+         int nScore = cur_arrival[j].score + nLiteralScore;
 
          apultra_arrival *pDestSlots = &cur_arrival[nArrivalsPerPosition];
          if (nCodingChoiceCost < pDestSlots[nArrivalsPerPosition - 1].cost ||
