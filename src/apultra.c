@@ -1041,7 +1041,6 @@ int main(int argc, char **argv) {
    int nArgsError = 0;
    int nCommandDefined = 0;
    int nVerifyCompression = 0;
-   int nFormatVersionDefined = 0;
    char cCommand = 'z';
    unsigned int nOptions = 0;
    unsigned int nMaxWindowSize = 0;
@@ -1142,10 +1141,7 @@ int main(int argc, char **argv) {
          if (!nMaxWindowSize) {
             char *pEnd = NULL;
             nMaxWindowSize = (int)strtol(argv[i] + 2, &pEnd, 10);
-            if (pEnd && pEnd != (argv[i] + 2) && (nMaxWindowSize >= 16 && nMaxWindowSize <= 0x200000)) {
-               nFormatVersionDefined = 1;
-            }
-            else {
+            if (!(pEnd && pEnd != (argv[i] + 2) && (nMaxWindowSize >= 16 && nMaxWindowSize <= 0x200000))) {
                nArgsError = 1;
             }
          }
