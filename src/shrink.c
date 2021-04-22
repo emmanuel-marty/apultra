@@ -1326,13 +1326,13 @@ static int apultra_optimize_and_write_block(apultra_compressor *pCompressor, con
             int m = 0, nInserted = 0;
             int nMatchPos;
 
-            while (m < 42 && match[m].length) {
+            while (m < 44 && match[m].length) {
                offset_cache[match[m].offset & 2047] = nPosition;
                offset_cache[(match[m].offset - (match_depth[m] & 0x3fff)) & 2047] = nPosition;
                m++;
             }
 
-            for (nMatchPos = next_offset_for_pos[nPosition - nPreviousBlockSize]; m < 42 && nMatchPos >= 0; nMatchPos = next_offset_for_pos[nMatchPos - nPreviousBlockSize]) {
+            for (nMatchPos = next_offset_for_pos[nPosition - nPreviousBlockSize]; m < 44 && nMatchPos >= 0; nMatchPos = next_offset_for_pos[nMatchPos - nPreviousBlockSize]) {
                int nMatchOffset = nPosition - nMatchPos;
 
                if (nMatchOffset <= pCompressor->max_offset) {
@@ -1383,7 +1383,7 @@ static int apultra_optimize_and_write_block(apultra_compressor *pCompressor, con
                         apultra_insert_forward_match(pCompressor, pInWindow, nPosition, nMatchOffset, nPreviousBlockSize, nEndOffset, nArrivalsPerPosition, 8);
 
                         nInserted++;
-                        if (nInserted >= 6)
+                        if (nInserted >= 10)
                            break;
                      }
                   }
