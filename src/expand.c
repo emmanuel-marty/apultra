@@ -97,7 +97,7 @@ size_t apultra_get_max_decompressed_size(const unsigned char *pInputData, size_t
    nDecompressedSize++;
 
    while (1) {
-      unsigned int nResult;
+      int nResult;
 
       nResult = apultra_read_bit(&pInputData, pInputDataEnd, &nCurBitMask, &bits);
       if (nResult < 0) return -1;
@@ -222,7 +222,7 @@ size_t apultra_decompress(const unsigned char *pInputData, unsigned char *pOutDa
    *pCurOutData++ = *pInputData++;
 
    while (1) {
-      unsigned int nResult;
+      int nResult;
 
       nResult = apultra_read_bit(&pInputData, pInputDataEnd, &nCurBitMask, &bits);
       if (nResult < 0) return -1;
