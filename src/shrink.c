@@ -345,7 +345,7 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
                int exists = 0;
 
                for (n = 0;
-                  n < nArrivalsPerPosition && pDestSlots[n].cost < nCodingChoiceCost;
+                  pDestSlots[n].cost < nCodingChoiceCost;
                   n++) {
                   if (pDestSlots[n].rep_offset == nRepOffset) {
                      exists = 1;
@@ -566,7 +566,7 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
                                  int exists = 0;
 
                                  for (n = 0;
-                                    n < nArrivalsPerPosition && pDestSlots[n].cost < nCodingChoiceCost;
+                                    pDestSlots[n].cost < nCodingChoiceCost;
                                     n++) {
                                     if (pDestSlots[n].rep_offset == nMatchOffset) {
                                        exists = 1;
@@ -663,7 +663,7 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
                               int exists = 0;
 
                               for (n = 0;
-                                 n < nArrivalsPerPosition && pDestSlots[n].cost < nRepCodingChoiceCost;
+                                 pDestSlots[n].cost < nRepCodingChoiceCost;
                                  n++) {
                                  if (pDestSlots[n].rep_offset == nRepOffset) {
                                     exists = 1;
