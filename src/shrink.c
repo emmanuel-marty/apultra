@@ -1383,7 +1383,7 @@ static int apultra_optimize_and_write_block(apultra_compressor *pCompressor, con
                         apultra_insert_forward_match(pCompressor, pInWindow, nPosition, nMatchOffset, nPreviousBlockSize, nEndOffset, nArrivalsPerPosition, 8);
 
                         nInserted++;
-                        if (nInserted >= 15)
+                        if (nInserted >= 18 || (nInserted >= 15 && m >= 38))
                            break;
                      }
                   }
