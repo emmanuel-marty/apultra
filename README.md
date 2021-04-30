@@ -36,7 +36,7 @@ Some projects that use apultra for compression:
 
 Also of interest:
  * [oapack](https://gitlab.com/eugene77/oapack) by Eugene Larchenko, a brute-force (exhaustive) optimal packer for the aPLib format. 
- * [i8080 decompressors](https://gitlab.com/ivagor/unapack) for aPLib by Ivan Gorodetsky
+ * [Streamed 8088 decompressor](https://hg.ulukai.org/ecm/inicomp/file/4c6ae7774f3a/apl.asm) for aPLib by C. Masloch
  * [Gameboy decompressor](https://github.com/untoxa/UnaPACK.GBZ80) by untoxa
 
 License:
