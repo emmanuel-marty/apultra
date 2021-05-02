@@ -201,6 +201,7 @@ static void apultra_insert_forward_match(apultra_compressor *pCompressor, const 
    const apultra_arrival *arrival = pCompressor->arrival + ((i - nStartOffset) * nArrivalsPerPosition);
    const int *rle_len = (int*)pCompressor->intervals /* reuse */;
    int* visited = ((int*)pCompressor->pos_data) - nStartOffset /* reuse */;
+   int* visited2 = visited + (nEndOffset - nStartOffset) /* reuse */;
    int j;
 
    for (j = 0; j < nArrivalsPerPosition && arrival[j].from_slot; j++) {
@@ -216,7 +217,7 @@ static void apultra_insert_forward_match(apultra_compressor *pCompressor, const 
 
                visited[nRepPos] = nMatchOffset;
 
-               if (nRepPos >= nMatchOffset && pCompressor->match[((nRepPos - nStartOffset) << MATCHES_PER_INDEX_SHIFT) + NMATCHES_PER_INDEX - 1].length == 0) {
+               if (visited2[nRepPos] != nMatchOffset && nRepPos >= nMatchOffset && pCompressor->match[((nRepPos - nStartOffset) << MATCHES_PER_INDEX_SHIFT) + NMATCHES_PER_INDEX - 1].length == 0) {
                   const unsigned char* pInWindowAtRepOffset = pInWindow + nRepPos;
 
                   if (pInWindowAtRepOffset[0] == pInWindowAtRepOffset[-nMatchOffset]) {
@@ -260,6 +261,8 @@ static void apultra_insert_forward_match(apultra_compressor *pCompressor, const 
                         }
 
                         if (r < NMATCHES_PER_INDEX) {
+                           visited2[nRepPos] = nMatchOffset;
+
                            fwd_match[r].offset = nMatchOffset;
                            fwd_match[r].length = nCurRepLen;
                            fwd_depth[r] = 0;
@@ -306,7 +309,7 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
    }
 
    if (nInsertForwardReps) {
-      memset(visited + nStartOffset, 0, (nEndOffset - nStartOffset) * sizeof(int));
+      memset(visited + nStartOffset, 0, 2 * (nEndOffset - nStartOffset) * sizeof(int));
    }
 
    for (i = nStartOffset; i != nEndOffset; i++) {
