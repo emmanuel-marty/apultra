@@ -1646,7 +1646,7 @@ size_t apultra_compress(const unsigned char *pInputData, unsigned char *pOutBuff
          nInDataSize = nBlockSize;
 
       if (nInDataSize > 0 && (nDictionarySize + nInDataSize) >= nInputSize) {
-         if (nInputSize <= 65536)
+         if (nInputSize <= 262144)
             nMaxArrivals = NARRIVALS_PER_POSITION_MAX;
          else
             nMaxArrivals = NARRIVALS_PER_POSITION_NORMAL;
