@@ -1,18 +1,18 @@
-apultra -- a new, opensource optimal compressor for the apLib format
+apultra -- a new, opensource optimal compressor for the aPLib format
 ====================================================================
 
-apultra is a command-line tool and a library that compresses bitstreams in the apLib format. 
+apultra is a command-line tool and a library that compresses bitstreams in the aPLib format. 
 
-The tool produces files that are 5 to 7% smaller on average than appack, the apLib compressor. Unlike the similar [cap](https://github.com/svendahl/cap) compressor, apultra can compress files larger than 64K.
+The tool produces files that are 5 to 7% smaller on average than appack, the aPLib compressor. Unlike the similar [cap](https://github.com/svendahl/cap) compressor, apultra can compress files larger than 64K.
 
-apultra is written in portable C. It is fully open-source under a liberal license. You can continue to use the regular apLib decompression libraries for your target environment. You can do whatever you like with it.
+apultra is written in portable C. It is fully open-source under a liberal license. You can continue to use the regular aPLib decompression libraries for your target environment. You can do whatever you like with it.
 
     Example compression with vmlinux-5.3.0-1-amd64
 
     original       27923676 (100,00%)
     appack         7370129 (26,39%)
     gzip 1.8       7166179 (25,66%)
-    apultra 1.3.5  6910729 (24,75%)
+    apultra 1.4.1  6910729 (24,75%)
 
 
 The output is fully compatible with the original [aPLib](http://ibsensoftware.com/products_aPLib.html) by Jørgen Ibsen.
