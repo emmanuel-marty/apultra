@@ -86,6 +86,12 @@ typedef struct {
    int score;
 } apultra_arrival;
 
+/** Visited match */
+typedef struct {
+   int outer;
+   int inner;
+} apultra_visited;
+
 /** Compression statistics */
 typedef struct _apultra_stats {
    int num_literals;

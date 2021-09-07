@@ -200,8 +200,7 @@ static inline int apultra_get_match_varlen_size(int nLength, const int nMatchOff
 static void apultra_insert_forward_match(apultra_compressor *pCompressor, const unsigned char *pInWindow, const int i, const int nMatchOffset, const int nStartOffset, const int nEndOffset, const int nArrivalsPerPosition, int nDepth) {
    const apultra_arrival *arrival = pCompressor->arrival + ((i - nStartOffset) * nArrivalsPerPosition);
    const int *rle_len = (int*)pCompressor->intervals /* reuse */;
-   int* visited = ((int*)pCompressor->pos_data) - nStartOffset /* reuse */;
-   int* visited2 = visited + (nEndOffset - nStartOffset) /* reuse */;
+   apultra_visited* visited = ((apultra_visited*)pCompressor->pos_data) - nStartOffset /* reuse */;
    int j;
 
    for (j = 0; j < nArrivalsPerPosition && arrival[j].from_slot; j++) {
@@ -212,15 +211,17 @@ static void apultra_insert_forward_match(apultra_compressor *pCompressor, const 
             int nRepPos = arrival[j].rep_pos;
 
             if (nRepPos >= nStartOffset &&
-               nRepPos < nEndOffset &&
-               visited[nRepPos] != nMatchOffset) {
+               (nRepPos + 1) < nEndOffset &&
+               visited[nRepPos].outer != nMatchOffset) {
 
-               visited[nRepPos] = nMatchOffset;
+               visited[nRepPos].outer = nMatchOffset;
 
-               if (visited2[nRepPos] != nMatchOffset && nRepPos >= nMatchOffset && pCompressor->match[((nRepPos - nStartOffset) << MATCHES_PER_INDEX_SHIFT) + NMATCHES_PER_INDEX - 1].length == 0) {
+               if (visited[nRepPos].inner != nMatchOffset && nRepPos >= nMatchOffset && pCompressor->match[((nRepPos - nStartOffset) << MATCHES_PER_INDEX_SHIFT) + NMATCHES_PER_INDEX - 1].length == 0) {
                   const unsigned char* pInWindowAtRepOffset = pInWindow + nRepPos;
 
-                  if (pInWindowAtRepOffset[0] == pInWindowAtRepOffset[-nMatchOffset]) {
+                  if (!memcmp(pInWindowAtRepOffset, pInWindowAtRepOffset - nMatchOffset, 2)) {
+                     visited[nRepPos].inner = nMatchOffset;
+
                      int nLen0 = rle_len[nRepPos - nMatchOffset];
                      int nLen1 = rle_len[nRepPos];
                      int nMinLen = (nLen0 < nLen1) ? nLen0 : nLen1;
@@ -244,32 +245,28 @@ static void apultra_insert_forward_match(apultra_compressor *pCompressor, const 
 
                      int nCurRepLen = (int)(pInWindowAtRepOffset - (pInWindow + nRepPos));
 
-                     if (nCurRepLen >= 2) {
-                        apultra_match* fwd_match = pCompressor->match + ((nRepPos - nStartOffset) << MATCHES_PER_INDEX_SHIFT);
-                        unsigned short* fwd_depth = pCompressor->match_depth + ((nRepPos - nStartOffset) << MATCHES_PER_INDEX_SHIFT);
-                        int r;
+                     apultra_match* fwd_match = pCompressor->match + ((nRepPos - nStartOffset) << MATCHES_PER_INDEX_SHIFT);
+                     unsigned short* fwd_depth = pCompressor->match_depth + ((nRepPos - nStartOffset) << MATCHES_PER_INDEX_SHIFT);
+                     int r;
 
-                        for (r = 0; fwd_match[r].length >= MIN_MATCH_SIZE; r++) {
-                           if (fwd_match[r].offset == nMatchOffset && (fwd_depth[r] & 0x3fff) == 0) {
-                              if ((int)fwd_match[r].length < nCurRepLen) {
-                                 fwd_match[r].length = nCurRepLen;
-                                 fwd_depth[r] = 0;
-                              }
-                              r = NMATCHES_PER_INDEX;
-                              break;
+                     for (r = 0; fwd_match[r].length >= MIN_MATCH_SIZE; r++) {
+                        if (fwd_match[r].offset == nMatchOffset && (fwd_depth[r] & 0x3fff) == 0) {
+                           if ((int)fwd_match[r].length < nCurRepLen) {
+                              fwd_match[r].length = nCurRepLen;
+                              fwd_depth[r] = 0;
                            }
+                           r = NMATCHES_PER_INDEX;
+                           break;
                         }
+                     }
 
-                        if (r < NMATCHES_PER_INDEX) {
-                           visited2[nRepPos] = nMatchOffset;
+                     if (r < NMATCHES_PER_INDEX) {
+                        fwd_match[r].offset = nMatchOffset;
+                        fwd_match[r].length = nCurRepLen;
+                        fwd_depth[r] = 0;
 
-                           fwd_match[r].offset = nMatchOffset;
-                           fwd_match[r].length = nCurRepLen;
-                           fwd_depth[r] = 0;
-
-                           if (nDepth < 9)
-                              apultra_insert_forward_match(pCompressor, pInWindow, nRepPos, nMatchOffset, nStartOffset, nEndOffset, nArrivalsPerPosition, nDepth + 1);
-                        }
+                        if (nDepth < 9)
+                           apultra_insert_forward_match(pCompressor, pInWindow, nRepPos, nMatchOffset, nStartOffset, nEndOffset, nArrivalsPerPosition, nDepth + 1);
                      }
                   }
                }
@@ -294,7 +291,7 @@ static void apultra_insert_forward_match(apultra_compressor *pCompressor, const 
 static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsigned char *pInWindow, const int nStartOffset, const int nEndOffset, const int nInsertForwardReps, const int *nCurRepMatchOffset, const int nBlockFlags, const int nArrivalsPerPosition) {
    apultra_arrival *arrival = pCompressor->arrival - (nStartOffset * nArrivalsPerPosition);
    const int* rle_len = (int*)pCompressor->intervals /* reuse */;
-   int* visited = ((int*)pCompressor->pos_data) - nStartOffset /* reuse */;
+   apultra_visited* visited = ((apultra_visited*)pCompressor->pos_data) - nStartOffset /* reuse */;
    int i, j, n;
 
    if ((nEndOffset - nStartOffset) > pCompressor->block_size) return;
@@ -309,7 +306,7 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
    }
 
    if (nInsertForwardReps) {
-      memset(visited + nStartOffset, 0, 2 * (nEndOffset - nStartOffset) * sizeof(int));
+      memset(visited + nStartOffset, 0, (nEndOffset - nStartOffset) * sizeof(apultra_visited));
    }
 
    for (i = nStartOffset; i != nEndOffset; i++) {
@@ -358,7 +355,7 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
 
                if (!exists) {
                   for (;
-                     n < nArrivalsPerPosition && pDestSlots[n].cost == nCodingChoiceCost && nScore >= pDestSlots[n].score;
+                     pDestSlots[n].cost == nCodingChoiceCost && nScore >= pDestSlots[n].score;
                      n++) {
                      if (pDestSlots[n].rep_offset == nRepOffset) {
                         exists = 1;
@@ -367,41 +364,39 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
                   }
 
                   if (!exists) {
-                     if (n < nArrivalsPerPosition) {
-                        int nn;
+                     int nn;
 
-                        for (nn = n;
-                           nn < nArrivalsPerPosition && pDestSlots[nn].cost == nCodingChoiceCost;
-                           nn++) {
-                           if (pDestSlots[nn].rep_offset == nRepOffset) {
-                              exists = 1;
+                     for (nn = n;
+                        nn < nArrivalsPerPosition && pDestSlots[nn].cost == nCodingChoiceCost;
+                        nn++) {
+                        if (pDestSlots[nn].rep_offset == nRepOffset) {
+                           exists = 1;
+                           break;
+                        }
+                     }
+
+                     if (!exists) {
+                        int z;
+
+                        for (z = n; z < nArrivalsPerPosition - 1 && pDestSlots[z].from_slot; z++) {
+                           if (pDestSlots[z].rep_offset == nRepOffset)
                               break;
-                           }
                         }
 
-                        if (!exists) {
-                           int z;
+                        memmove(&pDestSlots[n + 1],
+                           &pDestSlots[n],
+                           sizeof(apultra_arrival) * (z - n));
 
-                           for (z = n; z < nArrivalsPerPosition - 1 && pDestSlots[z].from_slot; z++) {
-                              if (pDestSlots[z].rep_offset == nRepOffset)
-                                 break;
-                           }
-
-                           apultra_arrival* pDestArrival = &pDestSlots[n];
-                           memmove(&pDestSlots[n + 1],
-                              &pDestSlots[n],
-                              sizeof(apultra_arrival) * (z - n));
-
-                           pDestArrival->cost = nCodingChoiceCost;
-                           pDestArrival->from_pos = i;
-                           pDestArrival->from_slot = j + 1;
-                           pDestArrival->follows_literal = 1;
-                           pDestArrival->rep_offset = nRepOffset;
-                           pDestArrival->short_offset = nShortOffset;
-                           pDestArrival->rep_pos = cur_arrival[j].rep_pos;
-                           pDestArrival->match_len = nShortLen;
-                           pDestArrival->score = nScore;
-                        }
+                        apultra_arrival* pDestArrival = &pDestSlots[n];
+                        pDestArrival->cost = nCodingChoiceCost;
+                        pDestArrival->from_pos = i;
+                        pDestArrival->from_slot = j + 1;
+                        pDestArrival->follows_literal = 1;
+                        pDestArrival->rep_offset = nRepOffset;
+                        pDestArrival->short_offset = nShortOffset;
+                        pDestArrival->rep_pos = cur_arrival[j].rep_pos;
+                        pDestArrival->match_len = nShortLen;
+                        pDestArrival->score = nScore;
                      }
                   }
                }
@@ -434,47 +429,46 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
       const unsigned short *match_depth = pCompressor->match_depth + ((i - nStartOffset) << MATCHES_PER_INDEX_SHIFT);
       int nNumArrivalsForThisPos = j, nOverallMinRepLen = 0, nOverallMaxRepLen = 0;
 
-      int nRepLenForArrival[NARRIVALS_PER_POSITION_MAX];
-      memset(nRepLenForArrival, 0, nArrivalsPerPosition * sizeof(int));
-
-      int nRepMatchArrivalIdx[NARRIVALS_PER_POSITION_MAX + 1];
+      int nRepMatchArrivalIdx[(2 * NARRIVALS_PER_POSITION_MAX) + 1];
       int nNumRepMatchArrivals = 0;
 
-      int nMaxRepLenForPos = nEndOffset - i;
-      if (nMaxRepLenForPos > LCP_MAX)
-         nMaxRepLenForPos = LCP_MAX;
-      const unsigned char* pInWindowStart = pInWindow + i;
-      const unsigned char* pInWindowMax = pInWindowStart + nMaxRepLenForPos;
-      const int nLen1 = rle_len[i];
+      if ((i + 2) <= nEndOffset) {
+         int nMaxRepLenForPos = nEndOffset - i;
+         if (nMaxRepLenForPos > LCP_MAX)
+            nMaxRepLenForPos = LCP_MAX;
+         const unsigned char* pInWindowStart = pInWindow + i;
+         const unsigned char* pInWindowMax = pInWindowStart + nMaxRepLenForPos;
+         const int nLen1 = rle_len[i];
 
-      for (j = 0; j < nNumArrivalsForThisPos && (i + 2) <= nEndOffset; j++) {
-         if (cur_arrival[j].follows_literal) {
-            int nRepOffset = cur_arrival[j].rep_offset;
+         for (j = 0; j < nNumArrivalsForThisPos; j++) {
+            if (cur_arrival[j].follows_literal) {
+               int nRepOffset = cur_arrival[j].rep_offset;
 
-            if (nRepOffset && i >= nRepOffset) {
-               if (pInWindowStart[0] == pInWindowStart[-nRepOffset]) {
-                  int nLen0 = rle_len[i - nRepOffset];
-                  int nMinLen = (nLen0 < nLen1) ? nLen0 : nLen1;
+               if (nRepOffset && i >= nRepOffset) {
+                  if (pInWindowStart[0] == pInWindowStart[-nRepOffset]) {
+                     int nLen0 = rle_len[i - nRepOffset];
+                     int nMinLen = (nLen0 < nLen1) ? nLen0 : nLen1;
 
-                  if (nMinLen > nMaxRepLenForPos)
-                     nMinLen = nMaxRepLenForPos;
+                     if (nMinLen > nMaxRepLenForPos)
+                        nMinLen = nMaxRepLenForPos;
 
-                  const unsigned char* pInWindowAtRepOffset = pInWindowStart + nMinLen;
-                  while ((pInWindowAtRepOffset + 8) < pInWindowMax && !memcmp(pInWindowAtRepOffset, pInWindowAtRepOffset - nRepOffset, 8))
-                     pInWindowAtRepOffset += 8;
-                  while ((pInWindowAtRepOffset + 4) < pInWindowMax && !memcmp(pInWindowAtRepOffset, pInWindowAtRepOffset - nRepOffset, 4))
-                     pInWindowAtRepOffset += 4;
-                  while (pInWindowAtRepOffset < pInWindowMax && pInWindowAtRepOffset[0] == pInWindowAtRepOffset[-nRepOffset])
-                     pInWindowAtRepOffset++;
+                     const unsigned char* pInWindowAtRepOffset = pInWindowStart + nMinLen;
+                     while ((pInWindowAtRepOffset + 8) < pInWindowMax && !memcmp(pInWindowAtRepOffset, pInWindowAtRepOffset - nRepOffset, 8))
+                        pInWindowAtRepOffset += 8;
+                     while ((pInWindowAtRepOffset + 4) < pInWindowMax && !memcmp(pInWindowAtRepOffset, pInWindowAtRepOffset - nRepOffset, 4))
+                        pInWindowAtRepOffset += 4;
+                     while (pInWindowAtRepOffset < pInWindowMax && pInWindowAtRepOffset[0] == pInWindowAtRepOffset[-nRepOffset])
+                        pInWindowAtRepOffset++;
 
-                  int nCurMaxLen = (int)(pInWindowAtRepOffset - pInWindowStart);
+                     int nCurMaxLen = (int)(pInWindowAtRepOffset - pInWindowStart);
 
-                  if (nCurMaxLen >= 2) {
-                     nRepLenForArrival[j] = nCurMaxLen;
-                     nRepMatchArrivalIdx[nNumRepMatchArrivals++] = j;
+                     if (nCurMaxLen >= 2) {
+                        nRepMatchArrivalIdx[nNumRepMatchArrivals++] = j;
+                        nRepMatchArrivalIdx[nNumRepMatchArrivals++] = nCurMaxLen;
 
-                     if (nOverallMaxRepLen < nCurMaxLen)
-                        nOverallMaxRepLen = nCurMaxLen;
+                        if (nOverallMaxRepLen < nCurMaxLen)
+                           nOverallMaxRepLen = nCurMaxLen;
+                     }
                   }
                }
             }
@@ -610,11 +604,11 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
                                                    break;
                                              }
 
-                                             apultra_arrival* pDestArrival = &pDestSlots[n];
                                              memmove(&pDestSlots[n + 1],
                                                 &pDestSlots[n],
                                                 sizeof(apultra_arrival) * (z - n));
 
+                                             apultra_arrival* pDestArrival = &pDestSlots[n];
                                              pDestArrival->cost = nRevisedCodingChoiceCost;
                                              pDestArrival->from_pos = i;
                                              pDestArrival->from_slot = j + 1;
@@ -654,8 +648,8 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
                      else if (nOverallMaxRepLen == k)
                         nOverallMaxRepLen--;
                      
-                     for (nCurRepMatchArrival = 0; (j = nRepMatchArrivalIdx[nCurRepMatchArrival]) >= 0; nCurRepMatchArrival++) {
-                        if (nRepLenForArrival[j] >= k) {
+                     for (nCurRepMatchArrival = 0; (j = nRepMatchArrivalIdx[nCurRepMatchArrival]) >= 0; nCurRepMatchArrival += 2) {
+                        if (nRepMatchArrivalIdx[nCurRepMatchArrival + 1] >= k) {
                            int nPrevCost = cur_arrival[j].cost & 0x3fffffff;
                            int nRepCodingChoiceCost = nPrevCost + nRepMatchCmdCost;
                            int nScore = cur_arrival[j].score + 2;
@@ -676,7 +670,7 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
 
                               if (!exists) {
                                  for (;
-                                    n < nArrivalsPerPosition && pDestSlots[n].cost == nRepCodingChoiceCost && nScore >= pDestSlots[n].score;
+                                    pDestSlots[n].cost == nRepCodingChoiceCost && nScore >= pDestSlots[n].score;
                                     n++) {
                                     if (pDestSlots[n].rep_offset == nRepOffset) {
                                        exists = 1;
@@ -685,41 +679,39 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
                                  }
 
                                  if (!exists) {
-                                    if (n < nArrivalsPerPosition) {
-                                       int nn;
+                                    int nn;
 
-                                       for (nn = n;
-                                          nn < nArrivalsPerPosition && pDestSlots[nn].cost == nRepCodingChoiceCost;
-                                          nn++) {
-                                          if (pDestSlots[nn].rep_offset == nRepOffset) {
-                                             exists = 1;
+                                    for (nn = n;
+                                       nn < nArrivalsPerPosition && pDestSlots[nn].cost == nRepCodingChoiceCost;
+                                       nn++) {
+                                       if (pDestSlots[nn].rep_offset == nRepOffset) {
+                                          exists = 1;
+                                          break;
+                                       }
+                                    }
+
+                                    if (!exists) {
+                                       int z;
+
+                                       for (z = n; z < nArrivalsPerPosition - 1 && pDestSlots[z].from_slot; z++) {
+                                          if (pDestSlots[z].rep_offset == nRepOffset)
                                              break;
-                                          }
                                        }
 
-                                       if (!exists) {
-                                          int z;
+                                       memmove(&pDestSlots[n + 1],
+                                          &pDestSlots[n],
+                                          sizeof(apultra_arrival) * (z - n));
 
-                                          for (z = n; z < nArrivalsPerPosition - 1 && pDestSlots[z].from_slot; z++) {
-                                             if (pDestSlots[z].rep_offset == nRepOffset)
-                                                break;
-                                          }
-
-                                          apultra_arrival* pDestArrival = &pDestSlots[n];
-                                          memmove(&pDestSlots[n + 1],
-                                             &pDestSlots[n],
-                                             sizeof(apultra_arrival) * (z - n));
-
-                                          pDestArrival->cost = nRepCodingChoiceCost;
-                                          pDestArrival->from_pos = i;
-                                          pDestArrival->from_slot = j + 1;
-                                          pDestArrival->follows_literal = 0;
-                                          pDestArrival->rep_offset = nRepOffset;
-                                          pDestArrival->short_offset = 0;
-                                          pDestArrival->rep_pos = i;
-                                          pDestArrival->match_len = k;
-                                          pDestArrival->score = nScore;
-                                       }
+                                       apultra_arrival* pDestArrival = &pDestSlots[n];
+                                       pDestArrival->cost = nRepCodingChoiceCost;
+                                       pDestArrival->from_pos = i;
+                                       pDestArrival->from_slot = j + 1;
+                                       pDestArrival->follows_literal = 0;
+                                       pDestArrival->rep_offset = nRepOffset;
+                                       pDestArrival->short_offset = 0;
+                                       pDestArrival->rep_pos = i;
+                                       pDestArrival->match_len = k;
+                                       pDestArrival->score = nScore;
                                     }
                                  }
                               }
@@ -1328,6 +1320,10 @@ static int apultra_optimize_and_write_block(apultra_compressor *pCompressor, con
             unsigned short* match_depth = pCompressor->match_depth + ((nPosition - nPreviousBlockSize) << MATCHES_PER_INDEX_SHIFT);
             int m = 0, nInserted = 0;
             int nMatchPos;
+            int nMaxForwardPos = nPosition + 2 + 1 + 5;
+
+            if (nMaxForwardPos > (nEndOffset - 2))
+               nMaxForwardPos = nEndOffset - 2;
 
             while (m < 46 && match[m].length) {
                offset_cache[match[m].offset & 2047] = nPosition;
@@ -1336,7 +1332,7 @@ static int apultra_optimize_and_write_block(apultra_compressor *pCompressor, con
             }
 
             for (nMatchPos = next_offset_for_pos[nPosition - nPreviousBlockSize]; m < 46 && nMatchPos >= 0; nMatchPos = next_offset_for_pos[nMatchPos - nPreviousBlockSize]) {
-               int nMatchOffset = nPosition - nMatchPos;
+               const int nMatchOffset = nPosition - nMatchPos;
 
                if (nMatchOffset <= pCompressor->max_offset) {
                   int nAlreadyExists = 0;
@@ -1364,30 +1360,33 @@ static int apultra_optimize_and_write_block(apultra_compressor *pCompressor, con
 
                   if (!nAlreadyExists) {
                      int nForwardPos = nPosition + 2 + 1;
-                     int nGotMatch = 0;
 
-                     while (nForwardPos >= nMatchOffset && (nForwardPos + 2) < nEndOffset && nForwardPos < (nPosition + 2 + 1 + 5)) {
-                        if (!memcmp(pInWindow + nForwardPos, pInWindow + nForwardPos - nMatchOffset, 2)) {
-                           nGotMatch = 1;
-                           break;
+                     if (nForwardPos >= nMatchOffset) {
+                        int nGotMatch = 0;
+
+                        while (nForwardPos < nMaxForwardPos) {
+                           if (!memcmp(pInWindow + nForwardPos, pInWindow + nForwardPos - nMatchOffset, 2)) {
+                              nGotMatch = 1;
+                              break;
+                           }
+                           nForwardPos++;
                         }
-                        nForwardPos++;
-                     }
 
-                     if (nGotMatch) {
-                        int nMatchLen = 2;
-                        while (nMatchLen < 16 && nPosition < (nEndOffset - nMatchLen) && pInWindow[nMatchPos + nMatchLen] == pInWindow[nPosition + nMatchLen])
-                           nMatchLen++;
-                        match[m].length = nMatchLen;
-                        match[m].offset = nMatchOffset;
-                        match_depth[m] = 0;
-                        m++;
+                        if (nGotMatch) {
+                           int nMatchLen = 2;
+                           while (nMatchLen < 16 && nPosition < (nEndOffset - nMatchLen) && pInWindow[nMatchPos + nMatchLen] == pInWindow[nPosition + nMatchLen])
+                              nMatchLen++;
+                           match[m].length = nMatchLen;
+                           match[m].offset = nMatchOffset;
+                           match_depth[m] = 0;
+                           m++;
 
-                        apultra_insert_forward_match(pCompressor, pInWindow, nPosition, nMatchOffset, nPreviousBlockSize, nEndOffset, nArrivalsPerPosition, 8);
+                           apultra_insert_forward_match(pCompressor, pInWindow, nPosition, nMatchOffset, nPreviousBlockSize, nEndOffset, nArrivalsPerPosition, 8);
 
-                        nInserted++;
-                        if (nInserted >= 18 || (nInserted >= 15 && m >= 38))
-                           break;
+                           nInserted++;
+                           if (nInserted >= 18 || (nInserted >= 15 && m >= 38))
+                              break;
+                        }
                      }
                   }
                }
