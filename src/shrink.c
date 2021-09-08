@@ -550,9 +550,10 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
                      }
 
                      for (j = 0; j < nNumArrivalsForThisPos; j++) {
-                        if (nMatchOffset != cur_arrival[j].rep_offset || cur_arrival[j].follows_literal == 0) {
+                        const int nFollowsLiteral = cur_arrival[j].follows_literal;
+                        if (nMatchOffset != cur_arrival[j].rep_offset || nFollowsLiteral == 0) {
                            int nPrevCost = cur_arrival[j].cost & 0x3fffffff;
-                           int nMatchCmdCost = nNoRepMatchMatchLenCost + nNoRepMatchOffsetCostForLit[cur_arrival[j].follows_literal];
+                           int nMatchCmdCost = nNoRepMatchMatchLenCost + nNoRepMatchOffsetCostForLit[nFollowsLiteral];
                            int nCodingChoiceCost = nPrevCost + nMatchCmdCost;
 
                            if (nCodingChoiceCost <= (pDestSlots[nArrivalsPerPosition - 1].cost + 1)) {
