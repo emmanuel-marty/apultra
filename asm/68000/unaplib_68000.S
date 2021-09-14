@@ -1,4 +1,4 @@
-;  unaplib_68000.s - aPLib decompressor for 68000 - 154 bytes
+;  unaplib_68000.s - aPLib decompressor for 68000 - 156 bytes
 ;
 ;  in:  a0 = start of compressed data
 ;       a1 = start of decompression buffer
@@ -87,6 +87,7 @@ apl_decompress:
                addx.b d0,d0         ; shift second bit into d0
                bsr.s .get_dibits    ; read a data bit into d0, one into carry
                addx.b d0,d0         ; shift second bit into d0
+               tst.b d0             ; check offset value
                beq.s .write_zero    ; if offset is zero, write a 0
 
                move.l a1,a6         ; calculate backreference address
