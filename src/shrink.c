@@ -73,7 +73,7 @@ static int apultra_write_bits(unsigned char *pOutData, int nOutOffset, const int
    if (nOutOffset < 0) return -1;
 
    for (i = nBits - 1; i >= 0; i--) {
-      if ((*nCurBitsOffset) == INT_MIN) {
+      if ((*nCurBitShift) == -1) {
          /* Allocate a new byte in the stream to pack bits in */
          if (nOutOffset >= nMaxOutDataSize) return -1;
          (*nCurBitsOffset) = nOutOffset;
@@ -84,10 +84,6 @@ static int apultra_write_bits(unsigned char *pOutData, int nOutOffset, const int
       pOutData[(*nCurBitsOffset)] |= ((nValue >> i) & 1) << (*nCurBitShift);
 
       (*nCurBitShift) --;
-      if ((*nCurBitShift) == -1) {
-         /* Current byte is full */
-         (*nCurBitsOffset) = INT_MIN;
-      }
    }
 
    return nOutOffset;
@@ -132,16 +128,12 @@ static int apultra_write_gamma2_value(unsigned char *pOutData, int nOutOffset, c
    while ((nValue >> msb--) == 0);
 
    while (msb > 0) {
-      int bit = (nValue >> msb) & 1;
+      const int bit = (nValue >> msb--) & 1;
    
-      nOutOffset = apultra_write_bits(pOutData, nOutOffset, nMaxOutDataSize, bit, 1, nCurBitsOffset, nCurBitShift);
-      msb--;
-      nOutOffset = apultra_write_bits(pOutData, nOutOffset, nMaxOutDataSize, 1, 1, nCurBitsOffset, nCurBitShift);
+      nOutOffset = apultra_write_bits(pOutData, nOutOffset, nMaxOutDataSize, (bit << 1) | 1, 2, nCurBitsOffset, nCurBitShift);
    }
 
-   nOutOffset = apultra_write_bits(pOutData, nOutOffset, nMaxOutDataSize, nValue & 1, 1, nCurBitsOffset, nCurBitShift);
-   nOutOffset = apultra_write_bits(pOutData, nOutOffset, nMaxOutDataSize, 0, 1, nCurBitsOffset, nCurBitShift);
-   return nOutOffset;
+   return apultra_write_bits(pOutData, nOutOffset, nMaxOutDataSize, (nValue & 1) << 1, 2, nCurBitsOffset, nCurBitShift);
 }
 
 /**
@@ -1696,7 +1688,7 @@ size_t apultra_compress(const unsigned char *pInputData, unsigned char *pOutBuff
 
    int nPreviousBlockSize = 0;
    int nNumBlocks = 0;
-   int nCurBitsOffset = INT_MIN, nCurBitShift = 0, nCurFollowsLiteral = 0;
+   int nCurBitsOffset = 0, nCurBitShift = -1, nCurFollowsLiteral = 0;
    int nBlockFlags = 1;
    int nCurRepMatchOffset = 0;
 
@@ -1731,7 +1723,7 @@ size_t apultra_compress(const unsigned char *pInputData, unsigned char *pOutBuff
             if (!nError) {
                nOriginalSize += nInDataSize;
                nCompressedSize += nOutDataSize;
-               if (nCurBitsOffset != INT_MIN)
+               if (nCurBitShift != -1)
                   nCurBitsOffset -= nOutDataSize;
             }
          }
