@@ -449,24 +449,24 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
                const int nRepOffset = cur_arrival[j].rep_offset;
 
                if (i >= nRepOffset) {
-                  if (pInWindowStart[0] == pInWindowStart[-nRepOffset]) {
-                     const int nLen0 = rle_len[i - nRepOffset];
-                     int nMinLen = (nLen0 < nLen1) ? nLen0 : nLen1;
+                  if (!memcmp(pInWindowStart, pInWindowStart - nRepOffset, 2)) {
+                     if (nRepOffset) {
+                        const int nLen0 = rle_len[i - nRepOffset];
+                        int nMinLen = (nLen0 < nLen1) ? nLen0 : nLen1;
 
-                     if (nMinLen > nMaxRepLenForPos)
-                        nMinLen = nMaxRepLenForPos;
+                        if (nMinLen > nMaxRepLenForPos)
+                           nMinLen = nMaxRepLenForPos;
 
-                     const unsigned char* pInWindowAtRepOffset = pInWindowStart + nMinLen;
-                     while ((pInWindowAtRepOffset + 8) < pInWindowMax && !memcmp(pInWindowAtRepOffset, pInWindowAtRepOffset - nRepOffset, 8))
-                        pInWindowAtRepOffset += 8;
-                     while ((pInWindowAtRepOffset + 4) < pInWindowMax && !memcmp(pInWindowAtRepOffset, pInWindowAtRepOffset - nRepOffset, 4))
-                        pInWindowAtRepOffset += 4;
-                     while (pInWindowAtRepOffset < pInWindowMax && pInWindowAtRepOffset[0] == pInWindowAtRepOffset[-nRepOffset])
-                        pInWindowAtRepOffset++;
+                        const unsigned char* pInWindowAtRepOffset = pInWindowStart + nMinLen;
+                        while ((pInWindowAtRepOffset + 8) < pInWindowMax && !memcmp(pInWindowAtRepOffset, pInWindowAtRepOffset - nRepOffset, 8))
+                           pInWindowAtRepOffset += 8;
+                        while ((pInWindowAtRepOffset + 4) < pInWindowMax && !memcmp(pInWindowAtRepOffset, pInWindowAtRepOffset - nRepOffset, 4))
+                           pInWindowAtRepOffset += 4;
+                        while (pInWindowAtRepOffset < pInWindowMax && pInWindowAtRepOffset[0] == pInWindowAtRepOffset[-nRepOffset])
+                           pInWindowAtRepOffset++;
 
-                     const int nCurMaxLen = (int)(pInWindowAtRepOffset - pInWindowStart);
+                        const int nCurMaxLen = (int)(pInWindowAtRepOffset - pInWindowStart);
 
-                     if (nCurMaxLen >= 2 && nRepOffset) {
                         nRepMatchArrivalIdx[nNumRepMatchArrivals++] = j;
                         nRepMatchArrivalIdx[nNumRepMatchArrivals++] = nCurMaxLen;
 
