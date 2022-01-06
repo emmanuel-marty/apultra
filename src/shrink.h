@@ -71,7 +71,7 @@ typedef struct _apultra_final_match {
 } apultra_final_match;
 
 /** Forward arrival slot */
-typedef struct {
+typedef struct _apultra_arrival {
    int cost;
 
    unsigned int from_pos:21;
@@ -87,10 +87,7 @@ typedef struct {
 } apultra_arrival;
 
 /** Visited match */
-typedef struct {
-   int outer;
-   int inner;
-} apultra_visited;
+typedef int apultra_visited;
 
 /** Compression statistics */
 typedef struct _apultra_stats {
