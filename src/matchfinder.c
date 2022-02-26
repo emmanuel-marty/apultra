@@ -241,25 +241,20 @@ int apultra_find_matches_at(apultra_compressor *pCompressor, const int nOffset, 
    unsigned short *cur_depth = NULL;
    
    if (nOffset >= match_pos && (nBlockFlags & 3) == 3) {
-      int nMatchOffset = (int)(nOffset - match_pos);
-      int nMatchLen = (int)(ref >> (LCP_SHIFT + TAG_BITS));
+      const int nMatchOffset = (const int)(nOffset - match_pos);
 
       if ((matchptr - pMatches) < nMaxMatches) {
-         if (nMatchOffset <= nMaxOffset) {
-            if (nPrevOffset && nPrevLen > 2 && nMatchOffset == (nPrevOffset - 1) && nMatchLen == (nPrevLen - 1) && cur_depth && nCurDepth < LCP_MAX) {
-               nCurDepth++;
-               *cur_depth = nCurDepth;
-            }
-            else {
-               nCurDepth = 0;
+         const int nMatchLen = (const int)(ref >> (LCP_SHIFT + TAG_BITS));
 
-               cur_depth = depthptr;
-               matchptr->length = nMatchLen;
-               matchptr->offset = nMatchOffset;
-               *depthptr = 0;
-               matchptr++;
-               depthptr++;
-            }
+         if (nMatchOffset <= nMaxOffset) {
+            nCurDepth = 0;
+
+            cur_depth = depthptr;
+            matchptr->length = nMatchLen;
+            matchptr->offset = nMatchOffset;
+            *depthptr = 0;
+            matchptr++;
+            depthptr++;
 
             nPrevLen = nMatchLen;
             nPrevOffset = nMatchOffset;
@@ -272,10 +267,11 @@ int apultra_find_matches_at(apultra_compressor *pCompressor, const int nOffset, 
          match_pos = intervals[super_ref & POS_MASK] & EXCL_VISITED_MASK;
 
          if (nOffset >= match_pos && (nBlockFlags & 3) == 3) {
-            int nMatchOffset = (int)(nOffset - match_pos);
-            int nMatchLen = (int)(ref >> (LCP_SHIFT + TAG_BITS));
+            const int nMatchOffset = (const int)(nOffset - match_pos);
 
             if ((matchptr - pMatches) < nMaxMatches) {
+               const int nMatchLen = (const int)(ref >> (LCP_SHIFT + TAG_BITS));
+
                if (nMatchOffset <= nMaxOffset && abs(nMatchOffset - nPrevOffset) >= 128) {
                   if (nPrevOffset && nPrevLen > 2 && nMatchOffset == (nPrevOffset - 1) && nMatchLen == (nPrevLen - 1) && cur_depth && nCurDepth < LCP_MAX) {
                      nCurDepth++;
@@ -303,10 +299,11 @@ int apultra_find_matches_at(apultra_compressor *pCompressor, const int nOffset, 
          match_pos = intervals[super_ref & POS_MASK] & EXCL_VISITED_MASK;
 
          if (nOffset > match_pos && (nBlockFlags & 3) == 3) {
-            int nMatchOffset = (int)(nOffset - match_pos);
-            int nMatchLen = (int)(ref >> (LCP_SHIFT + TAG_BITS));
+            const int nMatchOffset = (const int)(nOffset - match_pos);
 
             if ((matchptr - pMatches) < nMaxMatches) {
+               const int nMatchLen = (const int)(ref >> (LCP_SHIFT + TAG_BITS));
+
                if (nMatchOffset <= nMaxOffset && (nMatchLen >= 3 || (nMatchLen >= 2 && (matchptr - pMatches) < (nMaxMatches - 1))) && nMatchLen < 1280 && abs(nMatchOffset - nPrevOffset) >= 128) {
                   if (nPrevOffset && nPrevLen > 2 && nMatchOffset == (nPrevOffset - 1) && nMatchLen == (nPrevLen - 1) && cur_depth && nCurDepth < LCP_MAX) {
                      nCurDepth++;
@@ -333,12 +330,12 @@ int apultra_find_matches_at(apultra_compressor *pCompressor, const int nOffset, 
       intervals[ref & POS_MASK] = nOffset | VISITED_FLAG;
       pos_data[match_pos] = (unsigned long long)ref;
 
-      int nMatchOffset = (int)(nOffset - match_pos);
-      int nMatchLen = (int)(ref >> (LCP_SHIFT + TAG_BITS));
+      const int nMainMatchOffset = (const int)(nOffset - match_pos);
+      const int nMainMatchLen = (const int)(ref >> (LCP_SHIFT + TAG_BITS));
 
       if ((matchptr - pMatches) < nMaxMatches) {
-         if (nMatchOffset <= nMaxOffset && nMatchOffset != nPrevOffset) {
-            if (nPrevOffset && nPrevLen > 2 && nMatchOffset == (nPrevOffset - 1) && nMatchLen == (nPrevLen - 1) && cur_depth && nCurDepth < LCP_MAX) {
+         if (nMainMatchOffset <= nMaxOffset && nMainMatchOffset != nPrevOffset) {
+            if (nPrevOffset && nPrevLen > 2 && nMainMatchOffset == (nPrevOffset - 1) && nMainMatchLen == (nPrevLen - 1) && cur_depth && nCurDepth < LCP_MAX) {
                nCurDepth++;
                *cur_depth = nCurDepth;
             }
@@ -346,20 +343,20 @@ int apultra_find_matches_at(apultra_compressor *pCompressor, const int nOffset, 
                nCurDepth = 0;
 
                cur_depth = depthptr;
-               matchptr->length = nMatchLen;
-               matchptr->offset = nMatchOffset;
+               matchptr->length = nMainMatchLen;
+               matchptr->offset = nMainMatchOffset;
                *depthptr = 0;
                matchptr++;
                depthptr++;
             }
 
-            nPrevLen = nMatchLen;
-            nPrevOffset = nMatchOffset;
+            nPrevLen = nMainMatchLen;
+            nPrevOffset = nMainMatchOffset;
          }
       }
 
-      if (nMatchOffset && nMatchOffset < 16 && nMatchLen)
-         *pMatch1 = nMatchOffset;
+      if (nMainMatchOffset && nMainMatchOffset < 16 && nMainMatchLen)
+         *pMatch1 = nMainMatchOffset;
 
       if (super_ref == 0)
          break;
@@ -367,10 +364,11 @@ int apultra_find_matches_at(apultra_compressor *pCompressor, const int nOffset, 
       match_pos = intervals[ref & POS_MASK] & EXCL_VISITED_MASK;
 
       if (nOffset > match_pos && (nBlockFlags & 3) == 3) {
-         int nMatchOffset = (int)(nOffset - match_pos);
-         int nMatchLen = (int)(ref >> (LCP_SHIFT + TAG_BITS));
+         const int nMatchOffset = (const int)(nOffset - match_pos);
 
          if ((matchptr - pMatches) < nMaxMatches) {
+            const int nMatchLen = (const int)(ref >> (LCP_SHIFT + TAG_BITS));
+
             if (nMatchOffset <= nMaxOffset && nMatchLen >= 2 && abs(nMatchOffset - nPrevOffset) >= 128) {
                if (nPrevOffset && nPrevLen > 2 && nMatchOffset == (nPrevOffset - 1) && nMatchLen == (nPrevLen - 1) && cur_depth && nCurDepth < LCP_MAX) {
                   nCurDepth++;
