@@ -53,21 +53,6 @@ typedef struct _apultra_compressor apultra_compressor;
 int apultra_build_suffix_array(apultra_compressor *pCompressor, const unsigned char *pInWindow, const int nInWindowSize);
 
 /**
- * Find matches at the specified offset in the input window
- *
- * @param pCompressor compression context
- * @param nOffset offset to find matches at, in the input window
- * @param pMatches pointer to returned matches
- * @param pMatchDepth pointer to returned match depths
- * @param pMatch1 pointer to 1-byte length, 4 bit offset match
- * @param nMaxMatches maximum number of matches to return (0 for none)
- * @param nBlockFlags bit 0: 1 for first block, 0 otherwise; bit 1: 1 for last block, 0 otherwise
- *
- * @return number of matches
- */
-int apultra_find_matches_at(apultra_compressor *pCompressor, const int nOffset, apultra_match *pMatches, unsigned short *pMatchDepth, unsigned char *pMatch1, const int nMaxMatches, const int nBlockFlags);
-
-/**
  * Skip previously compressed bytes
  *
  * @param pCompressor compression context

@@ -186,11 +186,11 @@ int apultra_build_suffix_array(apultra_compressor *pCompressor, const unsigned c
  * @param pMatchDepth pointer to returned match depths
  * @param pMatch1 pointer to 1-byte length, 4 bit offset match
  * @param nMaxMatches maximum number of matches to return (0 for none)
- * @param nBlockFlags bit 0: 1 for first block, 0 otherwise; bit 1: 1 for last block, 0 otherwise
+ * @param nIsSelfContainedBlock 1 if block contains all of the data to be compressesd, 0 if this block is part of more blocks
  *
  * @return number of matches
  */
-int apultra_find_matches_at(apultra_compressor *pCompressor, const int nOffset, apultra_match *pMatches, unsigned short *pMatchDepth, unsigned char *pMatch1, const int nMaxMatches, const int nBlockFlags) {
+static int apultra_find_matches_at(apultra_compressor *pCompressor, const int nOffset, apultra_match *pMatches, unsigned short *pMatchDepth, unsigned char *pMatch1, const int nMaxMatches, const int nIsSelfContainedBlock) {
    unsigned long long *intervals = pCompressor->intervals;
    unsigned long long *pos_data = pCompressor->pos_data;
    unsigned long long ref;
@@ -240,7 +240,7 @@ int apultra_find_matches_at(apultra_compressor *pCompressor, const int nOffset, 
    int nCurDepth = 0;
    unsigned short *cur_depth = NULL;
    
-   if (nOffset >= match_pos && (nBlockFlags & 3) == 3) {
+   if (nOffset >= match_pos && nIsSelfContainedBlock) {
       const int nMatchOffset = (const int)(nOffset - match_pos);
 
       if ((matchptr - pMatches) < nMaxMatches) {
@@ -266,7 +266,7 @@ int apultra_find_matches_at(apultra_compressor *pCompressor, const int nOffset, 
       if ((super_ref = pos_data[match_pos]) > ref) {
          match_pos = intervals[super_ref & POS_MASK] & EXCL_VISITED_MASK;
 
-         if (nOffset >= match_pos && (nBlockFlags & 3) == 3) {
+         if (nOffset >= match_pos && nIsSelfContainedBlock) {
             const int nMatchOffset = (const int)(nOffset - match_pos);
 
             if ((matchptr - pMatches) < nMaxMatches) {
@@ -298,7 +298,7 @@ int apultra_find_matches_at(apultra_compressor *pCompressor, const int nOffset, 
       while ((super_ref = pos_data[match_pos]) > ref) {
          match_pos = intervals[super_ref & POS_MASK] & EXCL_VISITED_MASK;
 
-         if (nOffset > match_pos && (nBlockFlags & 3) == 3) {
+         if (nOffset > match_pos && nIsSelfContainedBlock) {
             const int nMatchOffset = (const int)(nOffset - match_pos);
 
             if ((matchptr - pMatches) < nMaxMatches) {
@@ -363,7 +363,7 @@ int apultra_find_matches_at(apultra_compressor *pCompressor, const int nOffset, 
       ref = super_ref;
       match_pos = intervals[ref & POS_MASK] & EXCL_VISITED_MASK;
 
-      if (nOffset > match_pos && (nBlockFlags & 3) == 3) {
+      if (nOffset > match_pos && nIsSelfContainedBlock) {
          const int nMatchOffset = (const int)(nOffset - match_pos);
 
          if ((matchptr - pMatches) < nMaxMatches) {
@@ -428,16 +428,15 @@ void apultra_find_all_matches(apultra_compressor *pCompressor, const int nMatche
    apultra_match *pMatch = pCompressor->match;
    unsigned short *pMatchDepth = pCompressor->match_depth;
    unsigned char *pMatch1 = pCompressor->match1;
+   const int nIsSelfContainedBlock = ((nBlockFlags & 3) == 3) ? 1 : 0;
    int i;
 
    for (i = nStartOffset; i < nEndOffset; i++) {
-      int nMatches = apultra_find_matches_at(pCompressor, i, pMatch, pMatchDepth, pMatch1, nMatchesPerOffset, nBlockFlags);
+      const int nMatches = apultra_find_matches_at(pCompressor, i, pMatch, pMatchDepth, pMatch1, nMatchesPerOffset, nIsSelfContainedBlock);
 
-      while (nMatches < nMatchesPerOffset) {
-         pMatch[nMatches].length = 0;
-         pMatch[nMatches].offset = 0;
-         pMatchDepth[nMatches] = 0;
-         nMatches++;
+      if (nMatches < nMatchesPerOffset) {
+         memset(&pMatch[nMatches], 0, sizeof(apultra_match) * (nMatchesPerOffset - nMatches));
+         memset(&pMatchDepth[nMatches], 0, sizeof(unsigned short) * (nMatchesPerOffset - nMatches));
       }
 
       pMatch += nMatchesPerOffset;
