@@ -935,7 +935,7 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
                   }
                }
 
-               if (!nCannotEncode && nOriginalCombinedCommandSize > nReducedCommandSize) {
+               if (nOriginalCombinedCommandSize > nReducedCommandSize && !nCannotEncode) {
                   /* Reduce */
                   const int nMatchLen = pMatch->length;
                   int j;
@@ -1013,8 +1013,8 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
                }
             }
 
-            if (!nCannotEncode) {
-               if (nCurCommandSize >= nReducedCommandSize) {
+            if (nCurCommandSize >= nReducedCommandSize) {
+               if (!nCannotEncode) {
                   pMatch->length += pBestMatch[i + nMatchLen].length;
                   pBestMatch[i + nMatchLen].length = 0;
                   pBestMatch[i + nMatchLen].offset = 0;
