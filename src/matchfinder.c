@@ -247,14 +247,12 @@ static int apultra_find_matches_at(apultra_compressor *pCompressor, const int nO
          const int nMatchLen = (const int)(ref >> (LCP_SHIFT + TAG_BITS));
 
          if (nMatchOffset <= nMaxOffset) {
-            nCurDepth = 0;
-
-            cur_depth = depthptr;
             matchptr->length = nMatchLen;
             matchptr->offset = nMatchOffset;
-            *depthptr = 0;
             matchptr++;
-            depthptr++;
+
+            *depthptr = nCurDepth = 0;
+            cur_depth = depthptr++;
 
             nPrevLen = nMatchLen;
             nPrevOffset = nMatchOffset;
@@ -274,18 +272,16 @@ static int apultra_find_matches_at(apultra_compressor *pCompressor, const int nO
 
                if (nMatchOffset <= nMaxOffset && abs(nMatchOffset - nPrevOffset) >= 128) {
                   if (nPrevOffset && nPrevLen > 2 && nMatchOffset == (nPrevOffset - 1) && nMatchLen == (nPrevLen - 1) && cur_depth && nCurDepth < LCP_MAX) {
-                     nCurDepth++;
-                     *cur_depth = nCurDepth | 0x8000;
+                     *cur_depth = (++nCurDepth) | 0x8000;
                   }
                   else {
-                     nCurDepth = 0;
-
-                     cur_depth = depthptr;
                      matchptr->length = nMatchLen;
                      matchptr->offset = nMatchOffset;
-                     *depthptr = 0x8000;
                      matchptr++;
-                     depthptr++;
+
+                     nCurDepth = 0;
+                     *depthptr = 0x8000;
+                     cur_depth = depthptr++;
                   }
 
                   nPrevLen = nMatchLen;
@@ -298,7 +294,7 @@ static int apultra_find_matches_at(apultra_compressor *pCompressor, const int nO
       while ((super_ref = pos_data[match_pos]) > ref) {
          match_pos = intervals[super_ref & POS_MASK] & EXCL_VISITED_MASK;
 
-         if (nOffset > match_pos && nIsSelfContainedBlock) {
+         if (nOffset >= match_pos && nIsSelfContainedBlock) {
             const int nMatchOffset = (const int)(nOffset - match_pos);
 
             if ((matchptr - pMatches) < nMaxMatches) {
@@ -306,18 +302,16 @@ static int apultra_find_matches_at(apultra_compressor *pCompressor, const int nO
 
                if (nMatchOffset <= nMaxOffset && (nMatchLen >= 3 || (nMatchLen >= 2 && (matchptr - pMatches) < (nMaxMatches - 1))) && nMatchLen < 1280 && abs(nMatchOffset - nPrevOffset) >= 128) {
                   if (nPrevOffset && nPrevLen > 2 && nMatchOffset == (nPrevOffset - 1) && nMatchLen == (nPrevLen - 1) && cur_depth && nCurDepth < LCP_MAX) {
-                     nCurDepth++;
-                     *cur_depth = nCurDepth | 0x8000;
+                     *cur_depth = (++nCurDepth) | 0x8000;
                   }
                   else {
-                     nCurDepth = 0;
-
-                     cur_depth = depthptr;
                      matchptr->length = nMatchLen;
                      matchptr->offset = nMatchOffset;
-                     *depthptr = 0x8000;
                      matchptr++;
-                     depthptr++;
+
+                     nCurDepth = 0;
+                     *depthptr = 0x8000;
+                     cur_depth = depthptr++;
                   }
 
                   nPrevLen = nMatchLen;
@@ -336,18 +330,15 @@ static int apultra_find_matches_at(apultra_compressor *pCompressor, const int nO
       if ((matchptr - pMatches) < nMaxMatches) {
          if (nMainMatchOffset <= nMaxOffset && nMainMatchOffset != nPrevOffset) {
             if (nPrevOffset && nPrevLen > 2 && nMainMatchOffset == (nPrevOffset - 1) && nMainMatchLen == (nPrevLen - 1) && cur_depth && nCurDepth < LCP_MAX) {
-               nCurDepth++;
-               *cur_depth = nCurDepth;
+               *cur_depth = ++nCurDepth;
             }
             else {
-               nCurDepth = 0;
-
-               cur_depth = depthptr;
                matchptr->length = nMainMatchLen;
                matchptr->offset = nMainMatchOffset;
-               *depthptr = 0;
                matchptr++;
-               depthptr++;
+
+               *depthptr = nCurDepth = 0;
+               cur_depth = depthptr++;
             }
 
             nPrevLen = nMainMatchLen;
@@ -363,7 +354,7 @@ static int apultra_find_matches_at(apultra_compressor *pCompressor, const int nO
       ref = super_ref;
       match_pos = intervals[ref & POS_MASK] & EXCL_VISITED_MASK;
 
-      if (nOffset > match_pos && nIsSelfContainedBlock) {
+      if (nOffset >= match_pos && nIsSelfContainedBlock) {
          const int nMatchOffset = (const int)(nOffset - match_pos);
 
          if ((matchptr - pMatches) < nMaxMatches) {
@@ -371,18 +362,16 @@ static int apultra_find_matches_at(apultra_compressor *pCompressor, const int nO
 
             if (nMatchOffset <= nMaxOffset && nMatchLen >= 2 && abs(nMatchOffset - nPrevOffset) >= 128) {
                if (nPrevOffset && nPrevLen > 2 && nMatchOffset == (nPrevOffset - 1) && nMatchLen == (nPrevLen - 1) && cur_depth && nCurDepth < LCP_MAX) {
-                  nCurDepth++;
-                  *cur_depth = nCurDepth | 0x8000;
+                  *cur_depth = (++nCurDepth) | 0x8000;
                }
                else {
-                  nCurDepth = 0;
-
-                  cur_depth = depthptr;
                   matchptr->length = nMatchLen;
                   matchptr->offset = nMatchOffset;
-                  *depthptr = 0x8000;
                   matchptr++;
-                  depthptr++;
+
+                  nCurDepth = 0;
+                  *depthptr = 0x8000;
+                  cur_depth = depthptr++;
                }
 
                nPrevLen = nMatchLen;

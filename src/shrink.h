@@ -150,7 +150,7 @@ typedef struct _apultra_compressor {
  *
  * @return maximum compressed size
  */
-size_t apultra_get_max_compressed_size(size_t nInputSize);
+size_t apultra_get_max_compressed_size(const size_t nInputSize);
 
 /**
  * Compress memory
@@ -167,8 +167,8 @@ size_t apultra_get_max_compressed_size(size_t nInputSize);
  *
  * @return actual compressed size, or -1 for error
  */
-size_t apultra_compress(const unsigned char *pInputData, unsigned char *pOutBuffer, size_t nInputSize, size_t nMaxOutBufferSize,
-   const unsigned int nFlags, size_t nMaxWindowSize, size_t nDictionarySize, void(*progress)(long long nOriginalSize, long long nCompressedSize), apultra_stats *pStats);
+size_t apultra_compress(const unsigned char *pInputData, unsigned char *pOutBuffer, const size_t nInputSize, const size_t nMaxOutBufferSize,
+   const unsigned int nFlags, const size_t nMaxWindowSize, const size_t nDictionarySize, void(*progress)(long long nOriginalSize, long long nCompressedSize), apultra_stats *pStats);
 
 #ifdef __cplusplus
 }
