@@ -805,8 +805,7 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
       }
 
       if (pMatch->length >= 2) {
-         if (pMatch->length < 32 && /* Don't waste time considering large matches, they will always win over literals */
-             (i + pMatch->length) < nEndOffset /* Don't consider the last match in the block, we can only reduce a match inbetween other tokens */) {
+         if (pMatch->length < 32 /* Don't waste time considering large matches, they will always win over literals */) {
             int nNextIndex = i + pMatch->length;
             int nNextFollowsLiteral = 0;
 
@@ -826,6 +825,8 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
                         (pBestMatch[nNextIndex].offset < MINMATCH4_OFFSET || pMatch->length >= 4)) {
                         int nMaxLen = 0;
                         const unsigned char* pInWindowAtPos = pInWindow + i;
+                        while ((nMaxLen + 8) < pMatch->length && !memcmp(pInWindowAtPos + nMaxLen - pBestMatch[nNextIndex].offset, pInWindowAtPos + nMaxLen, 8))
+                           nMaxLen += 8;
                         while ((nMaxLen + 4) < pMatch->length && !memcmp(pInWindowAtPos + nMaxLen - pBestMatch[nNextIndex].offset, pInWindowAtPos + nMaxLen, 4))
                            nMaxLen += 4;
                         while (nMaxLen < pMatch->length && pInWindowAtPos[nMaxLen - pBestMatch[nNextIndex].offset] == pInWindowAtPos[nMaxLen])
