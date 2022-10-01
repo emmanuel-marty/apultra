@@ -220,7 +220,7 @@ static void apultra_insert_forward_match(apultra_compressor *pCompressor, const 
                            const int nLen1 = rle_len[nRepPos];
                            const int nMinLen = (nLen0 < nLen1) ? nLen0 : nLen1;
 
-                           int nMaxRepLen = nEndOffset - nRepPos;
+                           unsigned int nMaxRepLen = nEndOffset - nRepPos;
                            if (nMaxRepLen > LCP_MAX)
                               nMaxRepLen = LCP_MAX;
 
@@ -237,14 +237,14 @@ static void apultra_insert_forward_match(apultra_compressor *pCompressor, const 
                            while (pInWindowAtRepOffset < pInWindowMax && pInWindowAtRepOffset[0] == pInWindowAtRepOffset[-nMatchOffset])
                               pInWindowAtRepOffset++;
 
-                           const int nCurRepLen = (const int)(pInWindowAtRepOffset - pInWindowStart);
+                           const unsigned int nCurRepLen = (const int)(pInWindowAtRepOffset - pInWindowStart);
 
                            unsigned short* fwd_depth = pCompressor->match_depth + ((nRepPos - nStartOffset) << MATCHES_PER_INDEX_SHIFT);
                            int r;
 
                            for (r = 0; fwd_match[r].length; r++) {
                               if (fwd_match[r].offset == nMatchOffset && (fwd_depth[r] & 0x3fff) == 0) {
-                                 if ((const int)fwd_match[r].length < nCurRepLen) {
+                                 if (fwd_match[r].length < nCurRepLen) {
                                     fwd_match[r].length = nCurRepLen;
                                     fwd_depth[r] = 0;
                                  }
@@ -729,7 +729,7 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
    }
    
    if (!nInsertForwardReps) {
-      const apultra_arrival* end_arrival = &arrival[(i * nArrivalsPerPosition) + 0];
+      const apultra_arrival* end_arrival = &arrival[i * nArrivalsPerPosition];
       apultra_final_match* pBestMatch = pCompressor->best_match - nStartOffset;
 
       while (end_arrival->from_slot > 0 && end_arrival->from_pos < (const unsigned int)nEndOffset) {
