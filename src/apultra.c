@@ -213,17 +213,18 @@ static int do_compress(const char *pszInFilename, const char *pszOutFilename, co
    if (nOptions & OPT_BACKWARD)
       do_reverse_buffer(pCompressedData, nCompressedSize);
 
-   if (pszOutFilename) {
-      FILE *f_out;
+   /* Write whole compressed file out */
 
-      /* Write whole compressed file out */
-
-      f_out = fopen(pszOutFilename, "wb");
-      if (f_out) {
-         fwrite(pCompressedData, 1, nCompressedSize, f_out);
-         fclose(f_out);
-      }
+   FILE *f_out = fopen(pszOutFilename, "wb");
+   if (!f_out) {
+      free(pCompressedData);
+      free(pDecompressedData);
+      fprintf(stderr, "error opening '%s' for writing\n", pszOutFilename);
+      return 100;
    }
+   
+   fwrite(pCompressedData, 1, nCompressedSize, f_out);
+   fclose(f_out);
 
    free(pCompressedData);
    free(pDecompressedData);
@@ -231,9 +232,9 @@ static int do_compress(const char *pszInFilename, const char *pszOutFilename, co
    if (nOptions & OPT_VERBOSE) {
       double fDelta = ((double)(nEndTime - nStartTime)) / 1000000.0;
       double fSpeed = ((double)nOriginalSize / 1048576.0) / fDelta;
-      fprintf(stdout, "\rCompressed '%s' in %g seconds, %.02g Mb/s, %d tokens (%g bytes/token), %d into %d bytes ==> %g %%\n",
+      fprintf(stdout, "\rCompressed '%s' in %g seconds, %.02g Mb/s, %d tokens (%g bytes/token), %zu into %zu bytes ==> %g %%\n",
          pszInFilename, fDelta, fSpeed, stats.commands_divisor, (double)nOriginalSize / (double)stats.commands_divisor,
-         (int)nOriginalSize, (int)nCompressedSize, (double)(nCompressedSize * 100.0 / nOriginalSize));
+         nOriginalSize, nCompressedSize, (double)(nCompressedSize * 100.0 / nOriginalSize));
    }
 
    if (nOptions & OPT_STATS) {
@@ -380,17 +381,19 @@ static int do_decompress(const char *pszInFilename, const char *pszOutFilename, 
    if (nOptions & OPT_BACKWARD)
       do_reverse_buffer(pDecompressedData + nDictionarySize, nOriginalSize);
 
-   if (pszOutFilename) {
-      FILE *f_out;
+   /* Write whole decompressed file out */
 
-      /* Write whole decompressed file out */
+   FILE *f_out = fopen(pszOutFilename, "wb");
+   if (!f_out) {
+      free(pDecompressedData);
+      free(pCompressedData);
 
-      f_out = fopen(pszOutFilename, "wb");
-      if (f_out) {
-         fwrite(pDecompressedData + nDictionarySize, 1, nOriginalSize, f_out);
-         fclose(f_out);
-      }
+      fprintf(stderr, "error opening '%s' for writing\n", pszOutFilename);
+      return 100;
    }
+   
+   fwrite(pDecompressedData + nDictionarySize, 1, nOriginalSize, f_out);
+   fclose(f_out);
 
    free(pDecompressedData);
    free(pCompressedData);
