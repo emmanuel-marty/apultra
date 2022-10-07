@@ -237,7 +237,7 @@ static void apultra_insert_forward_match(apultra_compressor *pCompressor, const 
                            while (pInWindowAtRepOffset < pInWindowMax && pInWindowAtRepOffset[0] == pInWindowAtRepOffset[-nMatchOffset])
                               pInWindowAtRepOffset++;
 
-                           const unsigned int nCurRepLen = (const int)(pInWindowAtRepOffset - pInWindowStart);
+                           const unsigned int nCurRepLen = (const unsigned int)(pInWindowAtRepOffset - pInWindowStart);
 
                            unsigned short* fwd_depth = pCompressor->match_depth + ((nRepPos - nStartOffset) << MATCHES_PER_INDEX_SHIFT);
                            int r;
