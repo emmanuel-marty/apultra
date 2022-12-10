@@ -25,6 +25,7 @@ Inspirations:
  * spke for help and support
 
 Some projects that use apultra for compression:
+ * [Hyperdrive](https://www.usebox.net/jjm/hyperdrive/), a new, excellent shoot'em up for the Amstrad CPC 464/6128/GX4000, in cartridge format, by usebox.net.
  * [Brick Rick](https://www.usebox.net/jjm/brick-rick/), a new game for the Amstrad CPC 464/6128 by usebox.net. A physical copy can be ordered from [Polyplay](https://www.polyplay.xyz/navi.php?suche=Brick+Rick&lang=eng)
  * [Brick Rick: Graveyard Shift](https://www.usebox.net/jjm/graveyard-shift/), a similar new game for the ZX Spectrum 128K by usebox.net. Get it on tape from [TFW8b.com](https://www.thefuturewas8bit.com/cas019.html)
  * [Kitsune's Curse](https://www.usebox.net/jjm/kitsunes-curse/), another new title for the CPC line by usebox.net.
