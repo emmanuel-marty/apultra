@@ -1,4 +1,5 @@
 CC=clang
+AR=ar
 CFLAGS=-O3 -g -fomit-frame-pointer -Isrc/libdivsufsort/include -Isrc
 OBJDIR=obj
 LDFLAGS=-L. -lapultra
@@ -26,7 +27,7 @@ $(APP): $(LIB) $(APPOBJS)
         $(CC) $^ $(LDFLAGS) -o $(APP)
 
 $(LIB): $(LIBOBJS)
-        ar rcs $(LIB) $(LIBOBJS)
+        $(AR) rcs $(LIB) $(LIBOBJS)
 
 libs: $(LIB)
 
