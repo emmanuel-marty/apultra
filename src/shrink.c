@@ -805,7 +805,7 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
       }
 
       if (pMatch->length >= 2) {
-         if (pMatch->length < 32768 /* Don't waste time considering large matches, they will always win over literals */) {
+         if (pMatch->length < LCP_MAX /* Don't waste time considering large matches, they will always win over literals */) {
             int nNextIndex = i + pMatch->length;
             int nNextFollowsLiteral = 0;
 
