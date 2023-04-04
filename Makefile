@@ -5,8 +5,8 @@ OBJDIR=obj
 LDFLAGS=-L. -lapultra
 
 $(OBJDIR)/%.o: src/../%.c
-        @mkdir -p '$(@D)'
-        $(CC) $(CFLAGS) -c $< -o $@
+	@mkdir -p '$(@D)'
+	$(CC) $(CFLAGS) -c $< -o $@
 
 APP := apultra
 LIB := libapultra.a
@@ -24,13 +24,13 @@ APPOBJS := $(OBJDIR)/src/apultra.o
 all: $(APP) $(LIB)
 
 $(APP): $(LIB) $(APPOBJS)
-        $(CC) $^ $(LDFLAGS) -o $(APP)
+	$(CC) $^ $(LDFLAGS) -o $(APP)
 
 $(LIB): $(LIBOBJS)
-        $(AR) rcs $(LIB) $(LIBOBJS)
+	$(AR) rcs $(LIB) $(LIBOBJS)
 
 libs: $(LIB)
 
 clean:
-        @rm -rf $(APP) $(OBJDIR)
-        @rm -rf $(LIB)
+	@rm -rf $(APP) $(OBJDIR)
+	@rm -rf $(LIB)
