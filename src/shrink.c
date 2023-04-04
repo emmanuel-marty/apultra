@@ -285,7 +285,6 @@ static void apultra_insert_forward_match(apultra_compressor *pCompressor, const 
 static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsigned char *pInWindow, const int nStartOffset, const int nEndOffset, const int nInsertForwardReps, const int *nCurRepMatchOffset, const int nBlockFlags, const int nArrivalsPerPosition) {
    apultra_arrival *arrival = pCompressor->arrival - (nStartOffset * nArrivalsPerPosition);
    const int* rle_len = (const int*)pCompressor->intervals /* reuse */;
-   apultra_visited* visited = ((apultra_visited*)pCompressor->pos_data) - nStartOffset /* reuse */;
    apultra_arrival* cur_arrival;
    int i;
 
@@ -305,6 +304,8 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
    arrival[nStartOffset * nArrivalsPerPosition].rep_offset = *nCurRepMatchOffset;
 
    if (nInsertForwardReps) {
+      apultra_visited* visited = ((apultra_visited*)pCompressor->pos_data) - nStartOffset /* reuse */;
+
       memset(visited + nStartOffset, 0, (nEndOffset - nStartOffset) * sizeof(apultra_visited));
    }
 
@@ -401,9 +402,9 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
          }
       }
       else {
-         for (j = 0; j < nArrivalsPerPosition && cur_arrival[j].from_slot; j++) {
-            apultra_arrival* pDestArrival = &cur_arrival[nArrivalsPerPosition + j];
+         apultra_arrival *pDestArrival = &cur_arrival[nArrivalsPerPosition];
 
+         for (j = 0; j < nArrivalsPerPosition && cur_arrival[j].from_slot; j++, pDestArrival++) {
             pDestArrival->cost = cur_arrival[j].cost + nLiteralCost;
             pDestArrival->from_pos = i;
             pDestArrival->from_slot = j + 1;
@@ -629,6 +630,10 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
                      }
                   }
 
+                  if (k == 3 && nMatchOffset < 128) {
+                     nNoRepMatchOffsetCostForLit[1] = nNoRepMatchOffsetCostForLit[0] = 8 + TOKEN_SIZE_LARGE_MATCH + 2;
+                  }
+
                   /* Insert repmatch candidate */
 
                   if (k > nOverallMinRepLen && k <= nOverallMaxRepLen) {
@@ -711,10 +716,6 @@ static void apultra_optimize_forward(apultra_compressor *pCompressor, const unsi
                            }
                         }
                      }
-                  }
-
-                  if (k == 3 && nMatchOffset < 128) {
-                     nNoRepMatchOffsetCostForLit[1] = nNoRepMatchOffsetCostForLit[0] = 8 + TOKEN_SIZE_LARGE_MATCH + 2;
                   }
 
                   if (k == nJumpMatchLen)
@@ -804,7 +805,7 @@ static int apultra_reduce_commands(apultra_compressor *pCompressor, const unsign
       }
 
       if (pMatch->length >= 2) {
-         if (pMatch->length < 32 /* Don't waste time considering large matches, they will always win over literals */) {
+         if (pMatch->length < 32768 /* Don't waste time considering large matches, they will always win over literals */) {
             int nNextIndex = i + pMatch->length;
             int nNextFollowsLiteral = 0;
 
