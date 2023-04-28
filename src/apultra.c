@@ -627,7 +627,7 @@ static void generate_compressible_data(unsigned char *pBuffer, const size_t nBuf
 
 static void xor_data(unsigned char *pBuffer, const size_t nBufferSize, const unsigned int nSeed, const float fXorProbability) {
    size_t nIndex = 0;
-   const int nXorProbability = (int)(fXorProbability * 1023.0f);
+   const int nXorProbability = (const int)(fXorProbability * 1023.0f);
 
    srand(nSeed);
 

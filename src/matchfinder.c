@@ -83,7 +83,7 @@ int apultra_build_suffix_array(apultra_compressor *pCompressor, const unsigned c
          PLCP[i] = 0;
          continue;
       }
-      int nMaxLen = (i > Phi[i]) ? (nInWindowSize - i) : (nInWindowSize - Phi[i]);
+      const int nMaxLen = (i > Phi[i]) ? (nInWindowSize - i) : (nInWindowSize - Phi[i]);
       while (nCurLen < nMaxLen && pInWindow[i + nCurLen] == pInWindow[Phi[i] + nCurLen]) nCurLen++;
       PLCP[i] = nCurLen;
       if (nCurLen > 0)
@@ -96,7 +96,7 @@ int apultra_build_suffix_array(apultra_compressor *pCompressor, const unsigned c
    intervals[0] &= POS_MASK;
 
    for (i = 1; i < nInWindowSize; i++) {
-      int nIndex = (int)(intervals[i] & POS_MASK);
+      const int nIndex = (const int)(intervals[i] & POS_MASK);
       int nLen = PLCP[nIndex];
       if (nLen < MIN_MATCH_SIZE)
          nLen = 0;
@@ -240,7 +240,7 @@ static int apultra_find_matches_at(apultra_compressor *pCompressor, const int nO
    int nCurDepth = 0;
    unsigned short *cur_depth = NULL;
    
-   if (nOffset >= match_pos && nIsSelfContainedBlock) {
+   if (nIsSelfContainedBlock) {
       const int nMatchOffset = (const int)(nOffset - match_pos);
 
       if ((matchptr - pMatches) < nMaxMatches) {
@@ -264,7 +264,7 @@ static int apultra_find_matches_at(apultra_compressor *pCompressor, const int nO
       if ((super_ref = pos_data[match_pos]) > ref) {
          match_pos = intervals[super_ref & POS_MASK] & EXCL_VISITED_MASK;
 
-         if (nOffset >= match_pos && nIsSelfContainedBlock) {
+         if (nIsSelfContainedBlock) {
             const int nMatchOffset = (const int)(nOffset - match_pos);
 
             if ((matchptr - pMatches) < nMaxMatches) {
@@ -294,7 +294,7 @@ static int apultra_find_matches_at(apultra_compressor *pCompressor, const int nO
       while ((super_ref = pos_data[match_pos]) > ref) {
          match_pos = intervals[super_ref & POS_MASK] & EXCL_VISITED_MASK;
 
-         if (nOffset >= match_pos && nIsSelfContainedBlock) {
+         if (nIsSelfContainedBlock) {
             const int nMatchOffset = (const int)(nOffset - match_pos);
 
             if ((matchptr - pMatches) < nMaxMatches) {
@@ -354,7 +354,7 @@ static int apultra_find_matches_at(apultra_compressor *pCompressor, const int nO
       ref = super_ref;
       match_pos = intervals[ref & POS_MASK] & EXCL_VISITED_MASK;
 
-      if (nOffset >= match_pos && nIsSelfContainedBlock) {
+      if (nIsSelfContainedBlock) {
          const int nMatchOffset = (const int)(nOffset - match_pos);
 
          if ((matchptr - pMatches) < nMaxMatches) {
