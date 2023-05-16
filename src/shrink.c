@@ -1255,6 +1255,21 @@ static int apultra_optimize_and_write_block(apultra_compressor *pCompressor, con
 
    memset(pCompressor->best_match, 0, pCompressor->block_size * sizeof(apultra_final_match));
 
+   i = 0;
+   while (i < nEndOffset) {
+      int nRangeStartIdx = i;
+      const unsigned char c = pInWindow[nRangeStartIdx];
+
+      do {
+         i++;
+      } while (i < nEndOffset && pInWindow[i] == c);
+
+      while (nRangeStartIdx < i) {
+         rle_len[nRangeStartIdx] = i - nRangeStartIdx;
+         nRangeStartIdx++;
+      }
+   }
+
    if ((nBlockFlags & 3) == 3) {
       int *first_offset_for_byte = pCompressor->first_offset_for_byte;
       int *next_offset_for_pos = pCompressor->next_offset_for_pos;
@@ -1307,21 +1322,6 @@ static int apultra_optimize_and_write_block(apultra_compressor *pCompressor, con
                break;
             }
          }
-      }
-   }
-
-   i = 0;
-   while (i < nEndOffset) {
-      int nRangeStartIdx = i;
-      const unsigned char c = pInWindow[nRangeStartIdx];
-      
-      do {
-         i++;
-      } while (i < nEndOffset && pInWindow[i] == c);
-      
-      while (nRangeStartIdx < i) {
-         rle_len[nRangeStartIdx] = i - nRangeStartIdx;
-         nRangeStartIdx++;
       }
    }
 
